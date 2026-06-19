@@ -1,0 +1,133 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* CSS custom properties — used by AmbientBackground and other components via var() */
+:root {
+  --black:   #08060B;
+  --black-2: #0F0B14;
+  --surface: #15101D;
+  --surface-2: #1C1525;
+  --line:        rgba(255,255,255,0.08);
+  --line-strong: rgba(255,255,255,0.14);
+  --pink:        #FF1D7E;
+  --pink-2:      #FF5C9A;
+  --violet:      #7B2FF7;
+  --violet-2:    #A472FF;
+  --mint:        #15CFA0;
+  --amber:       #FFB347;
+  --text:        #F5F2FA;
+  --text-dim:    #B8B3C4;
+  --text-faint:  #766F85;
+}
+
+
+/* Custom base adjustments */
+@layer base {
+  body {
+    background: #08060B;
+    color: #F5F2FA;
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    position: relative;
+    min-height: 100vh;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', sans-serif;
+    color: #F5F2FA;
+  }
+}
+
+/* Custom selection color */
+::selection {
+  background: #FF1D7E;
+  color: white;
+}
+
+/* Ambient noise grid background overlay */
+.noise-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 0%, transparent 70%);
+}
+
+/* Glassmorphic card styling utilities */
+.glass-panel {
+  background: linear-gradient(160deg, #15101D, #1C1525);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 40px 100px -30px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+}
+
+.glass-card {
+  background: #15101D;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Glow gradient shift utility */
+.gradient-text-shift {
+  background: linear-gradient(100deg, #FF1D7E 10%, #A472FF 60%, #15CFA0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% auto;
+  animation: gradient-shift 6s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #08060B;
+}
+::-webkit-scrollbar-thumb {
+  background: #1C1525;
+  border-radius: 99px;
+  border: 2px solid #08060B;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7B2FF7;
+}
+
+/* Global layout defaults */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 10;
+}
+
+/* prefers-reduced-motion overrides */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .glow-orb, .cursor-glow, .noise-grid {
+    animation: none !important;
+    opacity: 0.15 !important;
+  }
+}
