@@ -239,25 +239,48 @@ function HumanoidPuppet({ activeGloss, progress }) {
   );
 }
 
-export default function SigningAvatar({ glossSequence = [] }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+export default function SigningAvatar({
+  glossSequence = [],
+  controlledIndex,
+  controlledPlaying,
+  compact = false,
+}) {
+  const [internalIndex, setInternalIndex] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [internalPlaying, setInternalPlaying] = useState(true);
   const timerRef = useRef(null);
   const startTimeRef = useRef(null);
 
+  const isControlled = controlledIndex !== undefined;
+  const currentIndex = isControlled ? controlledIndex : internalIndex;
+  const isPlaying = isControlled ? controlledPlaying : internalPlaying;
   const activeToken = glossSequence[currentIndex];
 
   useEffect(() => {
-    if (!isPlaying || glossSequence.length === 0) {
+    if (isControlled) {
+      setProgress(0);
+      startTimeRef.current = performance.now();
+    }
+  }, [isControlled, currentIndex]);
+
+  useEffect(() => {
+    if (isControlled || !isPlaying || glossSequence.length === 0) {
       if (timerRef.current) clearInterval(timerRef.current);
-      return;
+      if (isControlled && isPlaying) {
+        const duration = activeToken?.duration || 1000;
+        startTimeRef.current = performance.now();
+        timerRef.current = setInterval(() => {
+          const elapsed = performance.now() - startTimeRef.current;
+          setProgress(Math.min(elapsed / duration, 1));
+        }, 1000 / 60);
+      }
+      return () => clearInterval(timerRef.current);
     }
 
     const duration = activeToken?.duration || 1000;
     startTimeRef.current = performance.now();
 
-    const interval = 1000 / 60; // 60 FPS update
+    const interval = 1000 / 60;
     timerRef.current = setInterval(() => {
       const elapsed = performance.now() - startTimeRef.current;
       const p = Math.min(elapsed / duration, 1);
@@ -265,18 +288,17 @@ export default function SigningAvatar({ glossSequence = [] }) {
 
       if (elapsed >= duration) {
         clearInterval(timerRef.current);
-        setCurrentIndex((prev) => (prev + 1) % glossSequence.length);
+        setInternalIndex((prev) => (prev + 1) % glossSequence.length);
         setProgress(0);
       }
     }, interval);
 
     return () => clearInterval(timerRef.current);
-  }, [currentIndex, isPlaying, glossSequence, activeToken]);
+  }, [currentIndex, isPlaying, glossSequence, activeToken, isControlled]);
 
   return (
-    <div className="w-full flex flex-col items-center">
-      {/* 3D Render Viewport */}
-      <div className="w-full h-[180px] bg-dark-card border border-white/5 rounded-2xl relative overflow-hidden group shadow-inner">
+    <div className="w-full h-full flex flex-col items-center">
+      <div className={`w-full ${compact ? "h-full min-h-[180px]" : "h-[180px]"} bg-dark-card border border-white/5 rounded-2xl relative overflow-hidden group shadow-inner`}>
         {/* Soft grid lines inside viewport */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
         
@@ -292,16 +314,17 @@ export default function SigningAvatar({ glossSequence = [] }) {
         </Canvas>
 
         {/* Video Controls */}
+        {!isControlled && (
         <div className="absolute bottom-2 right-2 flex gap-1.5 z-20">
           <button
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={() => setInternalPlaying(!internalPlaying)}
             className="px-2.5 py-1 bg-dark-bg/85 border border-white/10 hover:border-accent-mint/30 hover:bg-dark-bg text-text-dim hover:text-accent-mint font-mono text-[9px] uppercase tracking-wider rounded-md cursor-pointer transition-all"
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
           <button
             onClick={() => {
-              setCurrentIndex(0);
+              setInternalIndex(0);
               setProgress(0);
             }}
             className="px-2.5 py-1 bg-dark-bg/85 border border-white/10 hover:border-white/20 text-text-dim hover:text-text-primary font-mono text-[9px] uppercase tracking-wider rounded-md cursor-pointer transition-all"
@@ -309,9 +332,10 @@ export default function SigningAvatar({ glossSequence = [] }) {
             Reset
           </button>
         </div>
+        )}
       </div>
 
-      {/* Gloss subtitles tracker */}
+      {!compact && (
       <div className="w-full mt-3 px-2 flex flex-wrap justify-center items-center gap-1.5">
         {glossSequence.map((token, index) => (
           <span
@@ -326,6 +350,7 @@ export default function SigningAvatar({ glossSequence = [] }) {
           </span>
         ))}
       </div>
+      )}
     </div>
   );
 }

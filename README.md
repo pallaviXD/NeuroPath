@@ -2,13 +2,13 @@
 
 **The AI tutoring platform that figures out how each student actually learns — and teaches in that language.**
 
-NeuroPath watches how a student interacts with a concept (hover, scroll, pause, re-read) and silently builds a cognitive profile. Every lesson then reshapes itself into the format that student's brain actually understands — visual diagrams, narrative stories, hands-on simulations, or 3D sign language. Zero quizzes. Zero labels. Zero self-report.
+NeuroPath watches how a student interacts with a concept (hover, scroll, pause, re-read) and silently builds a cognitive profile. Every lesson then reshapes itself into the format that student's brain actually understands — visual diagrams, narrative stories, hands-on simulations, or 3D sign language. No self-report surveys — a short behavioral calibration infers how you learn.
 
 ---
 
 ## ✨ Features
 
-- **Cognitive Fingerprinting** — Behavior-based learning profile built in the first session. No quizzes, no labels.
+- **Cognitive Fingerprinting** — Behavior-based learning profile built in the first session via silent calibration tasks (speed, accuracy, effort) — no self-report surveys.
 - **4 Adaptive Modalities** — Visual diagrams, narrative stories, kinesthetic simulations, and native sign language (ASL/BSL/ISL).
 - **Struggle Detection & Micro-Intervention** — Re-read, long pause, wrong-then-right triggers an instant modality switch — in under 1 second, inline.
 - **3D Sign Language Avatar** — Three.js-powered signing avatar renders explanations inline. First-class format, not an accessibility afterthought.
@@ -31,6 +31,23 @@ NeuroPath watches how a student interacts with a concept (hover, scroll, pause, 
 | State | Zustand |
 | Routing | React Router v7 |
 | Persistence | LocalStorage (Firebase-ready) |
+| AI Agent | Google Gemini 2.5 Flash via `/api/gemini` proxy |
+
+---
+
+## 🔑 Gemini API Setup (required for AI agent)
+
+**Recommended (production):** Server-side proxy — key never exposed in the browser.
+
+1. Get a free API key from [Google AI Studio](https://aistudio.google.com/apikey)
+2. Copy `.env.example` to `.env`
+3. Set `GEMINI_API_KEY=your_key_here` and `VITE_USE_GEMINI_PROXY=true`
+4. On Vercel, add `GEMINI_API_KEY` as an environment variable (not `VITE_` prefixed)
+5. Restart the dev server
+
+**Local dev shortcut:** Set `VITE_GEMINI_API_KEY` for direct browser calls (omit proxy flag).
+
+The `/api/gemini` serverless route handles all agent calls when the proxy is enabled. Without a key, struggle interventions use rule-based fallback.
 
 ---
 

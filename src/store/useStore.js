@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { dbService } from "../lib/firebase";
 import { initialLogs } from "../data/mockClassData";
+import { emitIntervention } from "../lib/eventBus";
 
 export const useStore = create((set, get) => ({
   // Student cognitive state
@@ -89,12 +90,84 @@ export const useStore = create((set, get) => ({
     });
   },
 
-  // Calculate Cognitive Profile using the exact mathematical formula
+  // ─── NEW: Compute Cognitive Baseline from Timed Quiz ───────────
+  computeCognitiveBaseline: ({ quizResults, accessibilityFlag }) => {
+    if (accessibilityFlag === "deaf") {
+      const profile = {
+        primary: "sign",
+        confidence: 100,
+        breakdown: { visual: 40, narrative: 30, kinesthetic: 50, sign: 100 },
+        deafOrHoh: true,
+        cognitiveStyle: "Visual / Sign Processor",
+        effort: "High",
+        processingSpeed: "N/A"
+      };
+      get().setStudentProfile(profile);
+      return profile;
+    }
+
+    let totalTime = 0;
+    let totalAccuracy = 0;
+    let fastWrongCount = 0;
+
+    const scores = { visual: 0, narrative: 0, kinesthetic: 0, sign: 0 };
+
+    quizResults.forEach(r => {
+      totalTime += r.timeMs;
+      totalAccuracy += r.accuracy; // 0.0 to 1.0
+
+      // Add to modality score based on accuracy
+      if (r.modality && scores[r.modality] !== undefined) {
+        scores[r.modality] += r.accuracy * 10;
+      }
+
+      // Check for rapid guessing (under 2 seconds and incorrect/low accuracy)
+      if (r.timeMs < 2000 && r.accuracy < 0.5) {
+        fastWrongCount++;
+      }
+    });
+
+    const avgTime = totalTime / (quizResults.length || 1);
+    const avgAccuracy = totalAccuracy / (quizResults.length || 1);
+
+    // Determine Effort Level
+    let effort = "High";
+    if (fastWrongCount >= 2) effort = "Low (Random Guessing)";
+    else if (fastWrongCount === 1) effort = "Medium (Rushed)";
+
+    // Determine Processing Speed Profile
+    let processingSpeed = "Average";
+    if (avgTime < 4000 && avgAccuracy > 0.8) processingSpeed = "Rapid Processor";
+    else if (avgTime > 10000 && avgAccuracy > 0.7) processingSpeed = "Deep Thinker";
+    else if (avgTime < 4000 && avgAccuracy <= 0.8) processingSpeed = "Impulsive";
+
+    let cognitiveStyle = "Balanced";
+    if (avgAccuracy > 0.8) cognitiveStyle = "Highly Analytical";
+    else if (avgAccuracy > 0.5) cognitiveStyle = "Intuitive";
+    
+    // Determine primary modality for legacy support
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const primary = sorted[0][0] || "visual";
+    
+    const profile = {
+      primary,
+      confidence: Math.round(avgAccuracy * 100),
+      breakdown: { visual: scores.visual, narrative: scores.narrative, kinesthetic: scores.kinesthetic, sign: 0 },
+      deafOrHoh: false,
+      cognitiveStyle,
+      effort,
+      processingSpeed
+    };
+
+    get().setStudentProfile(profile);
+    return profile;
+  },
+
+  // Legacy hover-based compute (kept for compatibility, now unused by onboarding)
   computeCognitiveProfile: () => {
-    const { hoverTime, interactionDepth, clicks } = get().telemetry;
+    const { hoverTime, interactionDepth } = get().telemetry;
     const isSignPreferred = get().studentProfile.deafOrHoh;
 
-    // Explicit override if student requested sign language
     if (isSignPreferred) {
       const profile = {
         primary: "sign",
@@ -107,51 +180,22 @@ export const useStore = create((set, get) => ({
     }
 
     const modalities = ["visual", "narrative", "kinesthetic", "sign"];
-    
-    // Sum hover times
     const totalT = Object.values(hoverTime).reduce((a, b) => a + b, 0) || 1;
-    
-    // Performance default (no quiz checks in onboarding, so default to 1.0)
     const performance = { visual: 1.0, narrative: 1.0, kinesthetic: 1.0, sign: 1.0 };
-    
-    // Weights
-    const w_T = 0.5; // hover time ratio
-    const w_D = 0.3; // interaction depth
-    const w_P = 0.2; // micro-check performance
-
+    const w_T = 0.5, w_D = 0.3, w_P = 0.2;
     const scores = {};
     modalities.forEach((m) => {
-      const T_m = hoverTime[m] || 0;
-      const ratioT = T_m / totalT;
+      const ratioT = (hoverTime[m] || 0) / totalT;
       const D_m = interactionDepth[m] || 0;
       const P_m = performance[m] || 1.0;
-      
-      // Calculate individual modality score (0.0 to 1.0)
-      const rawScore = w_T * ratioT + w_D * D_m + w_P * P_m;
-      scores[m] = Math.round(rawScore * 100);
+      scores[m] = Math.round((w_T * ratioT + w_D * D_m + w_P * P_m) * 100);
     });
 
-    // Determine primary modality
-    let primary = "visual";
-    let maxScore = -1;
-    modalities.forEach((m) => {
-      if (scores[m] > maxScore) {
-        maxScore = scores[m];
-        primary = m;
-      }
-    });
-
-    // Calculate confidence score (relative strength of winning modality score)
+    let primary = "visual", maxScore = -1;
+    modalities.forEach((m) => { if (scores[m] > maxScore) { maxScore = scores[m]; primary = m; } });
     const sumScores = Object.values(scores).reduce((a, b) => a + b, 0) || 1;
-    const confidence = Math.min(100, Math.round((scores[primary] / sumScores) * 300)); // normalized scale
-
-    const profile = {
-      primary,
-      confidence: confidence > 0 ? confidence : 75,
-      breakdown: scores,
-      deafOrHoh: false
-    };
-
+    const confidence = Math.min(100, Math.round((scores[primary] / sumScores) * 300));
+    const profile = { primary, confidence: confidence > 0 ? confidence : 75, breakdown: scores, deafOrHoh: false };
     get().setStudentProfile(profile);
     return profile;
   },
@@ -161,52 +205,73 @@ export const useStore = create((set, get) => ({
     set({ dashboardStudents: dbService.getStudents() });
   },
 
-  triggerStruggleIntervention: (studentId, concept, struggleType, targetModality) => {
+  triggerStruggleIntervention: (studentId, concept, struggleType, targetModality, agentMeta = {}) => {
     const students = dbService.getStudents();
     const student = students.find(s => s.id === studentId);
-    
     if (student) {
-      // Add intervention to student's history
       const newIntervention = {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         concept,
         type: struggleType,
         modalityOffered: targetModality,
-        resolved: true
+        resolved: true,
+        outcomeVerified: false,
+        agentReasoning: agentMeta.modalityRationale || null,
+        teacherNote: agentMeta.teacherNote || null,
+        agentSource: agentMeta.source || "fallback",
+        interventionMessage: agentMeta.interventionMessage || null,
+        adaptedSnippet: agentMeta.adaptedSnippet || null,
       };
-      
       student.struggleHistory = [newIntervention, ...(student.struggleHistory || [])];
-      
-      // Update cell in heatmap matrix (e.g. index 4 or random checkpoint for demo purposes)
       const checkpointIndex = Math.floor(Math.random() * 12);
-      student.checkpoints[checkpointIndex] = 2; // Fired
-      
+      student.checkpoints[checkpointIndex] = 2;
       dbService.updateStudent(student);
-
-      // Log intervention to feed
       const logEntry = dbService.logIntervention({
         studentId: student.id,
         studentName: student.name,
         modality: targetModality,
         concept,
-        type: struggleType
+        type: struggleType,
+        agentReasoning: agentMeta.modalityRationale,
+        teacherNote: agentMeta.teacherNote,
+        agentSource: agentMeta.source
       });
-
       set((state) => {
         const dashboardLogs = [logEntry, ...state.dashboardLogs].slice(0, 50);
-        return {
-          dashboardStudents: dbService.getStudents(),
-          dashboardLogs
-        };
+        return { dashboardStudents: dbService.getStudents(), dashboardLogs };
       });
+      emitIntervention(logEntry);
     }
   },
 
-  // Direct log addition (for websocket simulator)
   addLiveLog: (log) => {
     set((state) => {
       const dashboardLogs = [log, ...state.dashboardLogs].slice(0, 50);
       return { dashboardLogs };
     });
-  }
+    if (!log.simulated) {
+      emitIntervention(log);
+    }
+  },
+
+  confirmInterventionOutcome: (studentId, concept, outcome) => {
+    const students = dbService.getStudents();
+    const student = students.find((s) => s.id === studentId);
+    if (!student?.struggleHistory?.length) return;
+
+    const idx = student.struggleHistory.findIndex(
+      (h) => h.concept === concept && !h.outcomeVerified
+    );
+    if (idx < 0) return;
+
+    student.struggleHistory[idx] = {
+      ...student.struggleHistory[idx],
+      outcomeVerified: true,
+      attemptsBefore: outcome.attemptsBefore,
+      attemptsAfter: outcome.attemptsAfter,
+      resolutionSeconds: outcome.durationSec,
+    };
+    dbService.updateStudent(student);
+    set({ dashboardStudents: dbService.getStudents() });
+  },
 }));

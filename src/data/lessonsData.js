@@ -1,3 +1,5 @@
+import { buildLocalSignStudyFromText } from "../lib/signPoseMap";
+
 export const lessonsData = {
   "newtons-first-law": {
     id: "newtons-first-law",
@@ -31,17 +33,18 @@ export const lessonsData = {
           initialRight: -10
         }
       },
-      sign: {
-        text: "Newton's First Law is also called the Law of Inertia. It means objects keep doing what they are doing unless a push or pull changes it.",
-        gloss: [
-          { gloss: "OBJECT", duration: 800 },
-          { gloss: "STAY", duration: 600 },
-          { gloss: "SAME", duration: 800 },
-          { gloss: "UNTIL", duration: 500 },
-          { gloss: "PUSH", duration: 900 },
-          { gloss: "CHANGES", duration: 700 }
+      sign: buildLocalSignStudyFromText(
+        "An object at rest stays at rest. An object in motion stays in motion. Nothing changes until an unbalanced force pushes or pulls. Then motion changes.",
+        "Inertia",
+        [
+          { gloss: "OBJECT" },
+          { gloss: "STAY" },
+          { gloss: "SAME" },
+          { gloss: "UNTIL" },
+          { gloss: "PUSH" },
+          { gloss: "CHANGES" },
         ]
-      }
+      ),
     },
     // Inline micro-check question to trigger struggle detection on wrong answers
     microCheck: {
@@ -113,19 +116,20 @@ export const lessonsData = {
           initialCO2: 40
         }
       },
-      sign: {
-        text: "Plants absorb light energy from the sun. They take water and gas, mix them together, make sugar food, and release oxygen gas.",
-        gloss: [
-          { gloss: "SUNLIGHT", duration: 900 },
-          { gloss: "ABSORB", duration: 700 },
-          { gloss: "WATER", duration: 500 },
-          { gloss: "GAS", duration: 600 },
-          { gloss: "MAKE", duration: 800 },
-          { gloss: "SUGAR", duration: 600 },
-          { gloss: "RELEASE", duration: 700 },
-          { gloss: "OXYGEN", duration: 800 }
+      sign: buildLocalSignStudyFromText(
+        "Plants absorb sunlight energy. They take water and carbon dioxide gas. They make sugar food inside chloroplasts. They release oxygen gas into the air.",
+        "Photosynthesis",
+        [
+          { gloss: "SUNLIGHT" },
+          { gloss: "ABSORB" },
+          { gloss: "WATER" },
+          { gloss: "GAS" },
+          { gloss: "MAKE" },
+          { gloss: "SUGAR" },
+          { gloss: "RELEASE" },
+          { gloss: "OXYGEN" },
         ]
-      }
+      ),
     },
     microCheck: {
       question: "Which of the following are the primary inputs (reactants) for photosynthesis?",

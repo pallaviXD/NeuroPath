@@ -1,17 +1,21 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Play, RotateCcw, ChevronRight, HelpCircle, ArrowRightLeft, Activity } from "lucide-react";
+import { Link } from "react-router-dom";
 import ForceDiagram from "../components/ForceDiagram";
-import SigningAvatar from "../components/SigningAvatar";
+import SignCard from "../components/SignCard";
+import { useStore } from "../store/useStore";
 
 export default function Demo() {
+  const triggerStruggleIntervention = useStore((state) => state.triggerStruggleIntervention);
+
   // Demo states: 0=Reset/Ready, 1=Reading, 2=ConfusionDetected, 3=InterventionDelivered, 4=LessonCompleted
   const [demoState, setDemoState] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const autoplayTimerRef = useRef(null);
 
-  // Sign gloss sequence for Student B
-  const gravityGloss = [
+  // Sign gloss sequence for Student B — maps to organizational inertia concept
+  const organizationalInertiaGloss = [
     { gloss: "OBJECT", duration: 800 },
     { gloss: "STAY", duration: 600 },
     { gloss: "SAME", duration: 800 },
@@ -44,6 +48,34 @@ export default function Demo() {
       if (autoplayTimerRef.current) clearTimeout(autoplayTimerRef.current);
     };
   }, [isPlaying, demoState]);
+
+  // Trigger real database logs in the store when the intervention state is reached
+  useEffect(() => {
+    if (demoState === 3) {
+      triggerStruggleIntervention(
+        "s2",
+        "unbalanced force (inertia)",
+        "idle-timer",
+        "visual",
+        {
+          modalityRationale: "Student paused on the concept 'unbalanced force' for 15s. Dynamically generated visual vector diagram.",
+          teacherNote: "Generated visual vector diagram for Diego Rodriguez.",
+          source: "demo"
+        }
+      );
+      triggerStruggleIntervention(
+        "s1",
+        "unbalanced force (inertia)",
+        "re-reading",
+        "sign",
+        {
+          modalityRationale: "Deaf student repeatedly hovered and re-read the same phrase. Translated content into sign-language gloss and rendered 3D signing avatar.",
+          teacherNote: "Generated 3D sign-gloss translation for Priya Patel.",
+          source: "demo"
+        }
+      );
+    }
+  }, [demoState, triggerStruggleIntervention]);
 
   const handleReset = () => {
     setIsPlaying(false);
@@ -88,10 +120,10 @@ export default function Demo() {
           Interactive Telemetry Demo
         </div>
         <h1 className="font-display font-bold text-3xl md:text-5xl tracking-tight mb-4">
-          Dual Student Simulation
+          Dual Learner Simulation
         </h1>
         <p className="text-text-dim text-sm md:text-base leading-relaxed">
-          Newton's First Law. Same moment of confusion. Two different profiles. 
+          Organizational Inertia. Same moment of confusion. Two different profiles. 
           Watch how the struggle pipeline adapts content for an Analytical learner vs a Sign-preferred Deaf student.
         </p>
       </div>
@@ -125,10 +157,18 @@ export default function Demo() {
 
           <button
             onClick={handleReset}
-            className="p-2.5 rounded-full border border-white/10 text-text-dim hover:text-text-primary hover:bg-white/5 cursor-pointer transition-colors"
+            className="p-2.5 rounded-full border border-white/10 text-text-dim hover:text-text-primary hover:bg-white/5 cursor-pointer transition-colors mr-2"
           >
             <RotateCcw size={14} />
           </button>
+
+          <Link
+            to="/dashboard"
+            className="px-5 py-2.5 rounded-full border border-accent-pink/30 text-accent-pinkLight hover:text-white hover:bg-accent-pink/10 hover:border-accent-pink bg-transparent font-mono text-[12.5px] font-bold cursor-pointer transition-all flex items-center gap-1.5"
+          >
+            <Activity size={12} />
+            Go to Dashboard
+          </Link>
         </div>
 
         {/* Current status display */}
@@ -160,12 +200,15 @@ export default function Demo() {
 
           {/* Lesson Body */}
           <div className="p-6 flex-1 overflow-y-auto flex flex-col justify-between">
-            <div className="text-text-dim text-[14.5px] leading-[1.7] relative">
-              An object at rest stays at rest, and an object in motion stays in motion, unless acted on by{" "}
+            <div className="text-text-dim text-[14.5px] leading-[1.7] relative p-4 rounded-xl border border-white/5 bg-white/[0.02]">
+              <div className="absolute -top-2.5 left-4 bg-dark-bg px-2 py-0.5 text-[9px] font-mono text-text-faint uppercase rounded border border-white/10">
+                Baseline Material (Identical)
+              </div>
+              In business, a company's strategy will stay the same until market competitors{" "}
               <span className={`rounded px-1.5 py-0.5 border transition-all duration-300 ${demoState >= 2 ? "bg-accent-pink/25 border-accent-pink/40 text-text-primary" : "border-transparent"}`}>
-                an unbalanced force
+                push for changes
               </span>
-              . This is Newton's First Law — the law of inertia.
+              . This is known as organizational inertia.
             </div>
 
             {/* Intervention Box A */}
@@ -177,8 +220,8 @@ export default function Demo() {
                   exit={{ opacity: 0, y: 15 }}
                   className="mt-6 border border-accent-violet/30 bg-accent-violet/5 rounded-xl p-4"
                 >
-                  <div className="font-mono text-[10.5px] text-accent-violetLight font-bold uppercase tracking-wider mb-3">⚡ INTERVENTION — FORCE DIAGRAM</div>
-                  <ForceDiagram lessonId="newtons-first-law" />
+                  <div className="font-mono text-[10.5px] text-accent-violetLight font-bold uppercase tracking-wider mb-3">⚡ INTERVENTION — INERTIA DIAGRAM</div>
+                  <ForceDiagram lessonId="organizational-inertia" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -220,12 +263,15 @@ export default function Demo() {
 
           {/* Lesson Body */}
           <div className="p-6 flex-1 overflow-y-auto flex flex-col justify-between">
-            <div className="text-text-dim text-[14.5px] leading-[1.7] relative">
-              An object at rest stays at rest, and an object in motion stays in motion, unless acted on by{" "}
+            <div className="text-text-dim text-[14.5px] leading-[1.7] relative p-4 rounded-xl border border-white/5 bg-white/[0.02]">
+              <div className="absolute -top-2.5 left-4 bg-dark-bg px-2 py-0.5 text-[9px] font-mono text-text-faint uppercase rounded border border-white/10">
+                Baseline Material (Identical)
+              </div>
+              In business, a company's strategy will stay the same until market competitors{" "}
               <span className={`rounded px-1.5 py-0.5 border transition-all duration-300 ${demoState >= 2 ? "bg-accent-pink/25 border-accent-pink/40 text-text-primary" : "border-transparent"}`}>
-                an unbalanced force
+                push for changes
               </span>
-              . This is Newton's First Law — the law of inertia.
+              . This is known as organizational inertia.
             </div>
 
             {/* Intervention Box B */}
@@ -238,7 +284,7 @@ export default function Demo() {
                   className="mt-6 border border-accent-mint/30 bg-accent-mint/5 rounded-xl p-4"
                 >
                   <div className="font-mono text-[10.5px] text-accent-mint font-bold uppercase tracking-wider mb-2">🤟 INTERVENTION — SIGNED EXPLANATION</div>
-                  <SigningAvatar glossSequence={gravityGloss} />
+                      <SignCard glossSequence={organizationalInertiaGloss} signSystem="SgSL" />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -265,6 +311,37 @@ export default function Demo() {
 
       </div>
 
+      {/* Simulation Complete Transition Banner */}
+      <AnimatePresence>
+        {demoState === 4 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="w-full mt-8 p-6 rounded-[24px] bg-gradient-to-r from-accent-pink/15 via-accent-violet/10 to-accent-mint/15 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.5)] text-left relative z-20"
+          >
+            <div>
+              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] text-accent-mint bg-accent-mint/10 border border-accent-mint/25 px-2.5 py-1 rounded-full uppercase tracking-wider mb-2">
+                ✓ Telemetry Simulation Complete
+              </span>
+              <h3 className="font-display font-bold text-lg text-text-primary">
+                Interventions Logged to Teacher Command Panel
+              </h3>
+              <p className="text-text-dim text-xs mt-1 max-w-2xl leading-relaxed">
+                NeuroPath has successfully recorded these struggle telemetry profiles and their corresponding micro-interventions. Head over to the Live Classroom Dashboard to inspect the live intervention logs and heatmap updates.
+              </p>
+            </div>
+            <Link
+              to="/dashboard"
+              className="px-6 py-3 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] hover:shadow-glowPink text-white font-mono font-bold text-xs uppercase tracking-wider flex items-center gap-2 cursor-pointer whitespace-nowrap transition-all"
+            >
+              Go to Teacher Dashboard
+              <ArrowRightLeft size={14} />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Explanatory telemetry graph in demo */}
       <div className="w-full glass-panel rounded-2xl p-6 border border-white/10 text-left mt-8">
         <h4 className="font-display font-semibold text-sm text-text-primary mb-4 flex items-center gap-1.5">
@@ -274,11 +351,11 @@ export default function Demo() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-mono">
           <div className={`p-3 rounded-xl border transition-all ${demoState === 1 ? "border-accent-violet/40 bg-accent-violet/5 text-text-primary" : "border-white/5 text-text-faint"}`}>
             <strong>Step 1: Reading</strong><br />
-            Students begin reading raw Newton concepts. Telemetry clocks active gaze scroll speed.
+            Both students read the same organizational inertia paragraph. Telemetry tracks scroll speed and dwell time.
           </div>
           <div className={`p-3 rounded-xl border transition-all ${demoState === 2 ? "border-accent-amber/40 bg-accent-amber/5 text-text-primary" : "border-white/5 text-text-faint"}`}>
             <strong>Step 2: Confusion</strong><br />
-            Student A hesitates on "unbalanced force" (15s idle). Student B repeats reading the phrase (re-read log).
+            Student A hesitates on "push for changes" (15s idle). Student B scrolls back to re-read the same phrase.
           </div>
           <div className={`p-3 rounded-xl border transition-all ${demoState === 3 ? "border-accent-pink/40 bg-accent-pink/5 text-text-primary" : "border-white/5 text-text-faint"}`}>
             <strong>Step 3: Intervention</strong><br />

@@ -1,17 +1,29 @@
 import { useState } from "react";
 import { useStore } from "../../store/useStore";
-import SigningAvatar from "../../components/SigningAvatar";
+import SignCard from "../../components/SignCard";
 import { Hand, PlayCircle, Eye, Info } from "lucide-react";
 
 export default function SignLanguageView() {
   const students = useStore((state) => state.dashboardStudents);
-  const [selectedSequence, setSelectedSequence] = useState("gravity");
+  const [selectedSequence, setSelectedSequence] = useState("everyday");
 
   // Filter deaf or sign-preferred students
   const signStudents = students.filter(s => s.profile.primary === "sign" || s.deafOrHoh);
 
-  // Sequences list for teacher preview
   const sequences = {
+    everyday: [
+      { gloss: "HELLO", duration: 800 },
+      { gloss: "GOOD MORNING", duration: 1000 },
+      { gloss: "I LOVE YOU", duration: 900 },
+      { gloss: "SORRY", duration: 800 }
+    ],
+    basics: [
+      { gloss: "PLEASE", duration: 800 },
+      { gloss: "THANK YOU", duration: 800 },
+      { gloss: "YES", duration: 700 },
+      { gloss: "NO", duration: 700 },
+      { gloss: "HELP", duration: 900 }
+    ],
     gravity: [
       { gloss: "EARTH", duration: 800 },
       { gloss: "PULL", duration: 700 },
@@ -108,9 +120,11 @@ export default function SignLanguageView() {
               ))}
             </div>
 
-            {/* R3F Embedded Canvas */}
-            <div className="bg-dark-bg/60 p-4 border border-white/5 rounded-xl">
-              <SigningAvatar glossSequence={sequences[selectedSequence]} />
+            {/* SVG Sequencer Card */}
+            <div className="bg-dark-bg/60 p-4 border border-white/5 rounded-xl flex items-center justify-center">
+              <div className="w-[300px]">
+                <SignCard glossSequence={sequences[selectedSequence]} />
+              </div>
             </div>
           </div>
 

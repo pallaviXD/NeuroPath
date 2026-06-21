@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useMotionValue, useInView } from "framer-motion";
-import { ArrowRight, Sparkles, Brain, Zap, Eye, BookOpen, Hand, BarChart2, Shield, ChevronDown, Play, Users, Star, Globe } from "lucide-react";
+import { ArrowRight, Sparkles, Brain, Zap, Eye, BookOpen, Hand, BarChart2, Shield, ChevronDown, Play, Users, Star, Globe, GraduationCap, LayoutDashboard, Home, Settings } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
-
+import { HeroGeometric } from "../components/ui/shape-landing-hero";
+import ModalityCompare from "../components/ModalityCompare";
 // ─── Floating particle field ───────────────────────────────────────────────
 function ParticleField() {
   const particles = useRef(
@@ -234,10 +235,10 @@ export default function Landing() {
   };
 
   const roles = [
-    { id: "student", icon: "🎓", label: "Student", desc: "Adaptive lessons built around how you learn", color: "pink", cta: "Start Learning", path: user ? "/onboarding" : "/signup?role=student" },
-    { id: "teacher", icon: "🏫", label: "Teacher", desc: "Real-time dashboard for your whole classroom", color: "violet", cta: "Open Dashboard", path: user ? "/dashboard" : "/signup?role=teacher" },
-    { id: "parent", icon: "🏠", label: "Parent", desc: "Weekly digest of your child's progress", color: "mint", cta: "View Portal", path: user ? "/parent" : "/signup?role=parent" },
-    { id: "admin", icon: "⚙️", label: "Admin", desc: "District-wide rollout and compliance console", color: "amber", cta: "Admin Console", path: user ? "/dashboard" : "/signup?role=admin" },
+    { id: "student", icon: GraduationCap, label: "Student", desc: "Adaptive lessons built around how you learn", color: "pink", cta: "Start Learning", path: user ? "/onboarding" : "/signup?role=student" },
+    { id: "teacher", icon: LayoutDashboard, label: "Teacher", desc: "Real-time dashboard for your whole classroom", color: "violet", cta: "Open Dashboard", path: user ? "/dashboard" : "/signup?role=teacher" },
+    { id: "parent", icon: Home, label: "Parent", desc: "Weekly digest of your child's progress", color: "mint", cta: "View Portal", path: user ? "/parent" : "/signup?role=parent" },
+    { id: "admin", icon: Settings, label: "Admin", desc: "District-wide rollout and compliance console", color: "amber", cta: "Admin Console", path: user ? "/dashboard" : "/signup?role=admin" },
   ];
 
   const pipeSteps = [
@@ -249,12 +250,12 @@ export default function Landing() {
   ];
 
   const features = [
-    { icon: Brain, title: "Cognitive Fingerprinting", desc: "Behavior-based learning profile built in the first session — no quizzes, no labels, no self-report.", color: "pink", stat: "0 quizzes" },
+    { icon: Brain, title: "Cognitive Fingerprinting", desc: "Silent 2-minute calibration infers your learning style from speed, accuracy, and effort — no self-report surveys.", color: "pink", stat: "2 min" },
     { icon: Zap, title: "Instant Struggle Detection", desc: "Re-read, long pause, wrong-then-right — the system catches confusion before you even know you're lost.", color: "violet", stat: "<1s response" },
-    { icon: Hand, title: "Native Sign Language", desc: "3D signing avatar renders inline. ASL, BSL, ISL. Not an accessibility afterthought — a first-class delivery format.", color: "mint", stat: "5 variants" },
+    { icon: Hand, title: "Native Sign Language", desc: "3D signing avatar with SgSL gloss sequencing (Unmute-style). First-class delivery format — not captions.", color: "mint", stat: "SgSL" },
     { icon: BarChart2, title: "Teacher Command Panel", desc: "Live classroom heatmap, modality distribution, intervention history, and per-student deep dive.", color: "amber", stat: "24 students" },
     { icon: Globe, title: "Language-Agnostic Engine", desc: "Adaptive logic works regardless of first language. One curriculum, infinite delivery formats.", color: "pink", stat: "Any language" },
-    { icon: Shield, title: "Privacy by Design", desc: "Behavioral telemetry stays internal. No diagnosis labels. FERPA/COPPA/GDPR-K compliant from day one.", color: "mint", stat: "0 labels" },
+    { icon: Shield, title: "Privacy by Design", desc: "Behavioral telemetry stays internal. No clinical diagnosis — only learning-format preferences. FERPA/COPPA/GDPR-K aligned.", color: "mint", stat: "Private" },
   ];
 
   return (
@@ -263,181 +264,12 @@ export default function Landing() {
       <MagneticOrb />
 
       {/* ════════════════ HERO ════════════════ */}
-      <motion.section
-        style={{ y: heroY, opacity: heroOpacity }}
-        className="relative min-h-screen flex flex-col items-center justify-center pt-24 pb-16 px-6 md:px-16 z-10"
-      >
-        {/* Background radial gradients */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <motion.div className="absolute top-[-200px] left-[-200px] w-[700px] h-[700px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(255,29,126,0.18) 0%, transparent 70%)" }}
-            animate={{ scale: [1, 1.15, 1], rotate: [0, 20, 0] }}
-            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div className="absolute bottom-[-100px] right-[-150px] w-[600px] h-[600px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(123,47,247,0.2) 0%, transparent 70%)" }}
-            animate={{ scale: [1, 1.2, 1], rotate: [0, -15, 0] }}
-            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut", delay: 3 }}
-          />
-          <motion.div className="absolute top-[40%] left-[40%] w-[400px] h-[400px] rounded-full"
-            style={{ background: "radial-gradient(circle, rgba(21,207,160,0.08) 0%, transparent 70%)" }}
-            animate={{ scale: [1, 1.3, 1] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 6 }}
-          />
-        </div>
-
-        {/* Horizontal scan line */}
-        <motion.div className="absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-accent-pink/30 to-transparent z-0"
-          animate={{ top: ["10%", "90%", "10%"] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-        />
-
-        {/* Hero content */}
-        <div className="relative z-10 w-full max-w-7xl">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left */}
-            <div className="flex flex-col items-start">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-                <Badge color="pink">AI-Native Adaptive Learning</Badge>
-              </motion.div>
-
-              <motion.h1
-                initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.1 }}
-                className="font-display font-black text-5xl md:text-[72px] lg:text-[80px] leading-[1.0] tracking-[-0.02em] mt-6 mb-6 text-left"
-              >
-                The tutor that<br />
-                <span className="relative inline-block">
-                  <span className="gradient-text-shift">learns how</span>
-                  <motion.div className="absolute -bottom-1 left-0 right-0 h-[3px] bg-gradient-to-r from-accent-pink to-accent-violet rounded-full"
-                    initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 0.8, delay: 0.9 }}
-                  />
-                </span>
-                <br />you learn.
-              </motion.h1>
-
-              <motion.p
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.3 }}
-                className="text-text-dim text-lg md:text-xl leading-relaxed mb-8 max-w-[520px] text-left"
-              >
-                NeuroPath watches how you interact with a concept — hover, scroll, pause, re-read — and silently builds your cognitive profile. Then every lesson reshapes itself into the format your brain actually understands. Zero quizzes. Zero labels.
-              </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, delay: 0.4 }}
-                className="flex flex-wrap gap-4 mb-10"
-              >
-                <motion.button
-                  onClick={() => navigate(user ? "/onboarding" : "/signup")}
-                  whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
-                  className="px-8 py-4 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] text-white font-bold text-base shadow-[0_8px_32px_rgba(255,29,126,0.45)] flex items-center gap-2 relative overflow-hidden group"
-                >
-                  <span className="relative z-10 flex items-center gap-2">
-                    <Sparkles size={16} /> Start your free profile
-                    <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                  </span>
-                  <motion.div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </motion.button>
-
-                <motion.button
-                  onClick={() => navigate("/login")}
-                  whileHover={{ scale: 1.02, borderColor: "rgba(255,29,126,0.5)" }} whileTap={{ scale: 0.97 }}
-                  className="px-8 py-4 rounded-full border border-white/15 text-text-dim hover:text-text-primary bg-white/[0.03] font-semibold text-base transition-all backdrop-blur-sm flex items-center gap-2"
-                >
-                  Sign in <ArrowRight size={15} />
-                </motion.button>
-              </motion.div>
-
-              {/* Trust numbers */}
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="flex items-center gap-8 flex-wrap">
-                <div className="text-left">
-                  <div className="font-mono text-[11px] text-text-faint uppercase tracking-wider mb-1">Students served</div>
-                  <StatCounter value="300" suffix="M+" />
-                </div>
-                <div className="w-px h-10 bg-white/10" />
-                <div className="text-left">
-                  <div className="font-mono text-[11px] text-text-faint uppercase tracking-wider mb-1">Deaf/HoH learners</div>
-                  <StatCounter value="70" suffix="M+" />
-                </div>
-                <div className="w-px h-10 bg-white/10" />
-                <div className="text-left">
-                  <div className="font-mono text-[11px] text-text-faint uppercase tracking-wider mb-1">Self-report quizzes</div>
-                  <StatCounter value="0" />
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Right — hero interactive widget */}
-            <div className="relative flex items-center justify-center h-[560px]">
-              {/* Central fingerprint card */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 40 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 1, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full max-w-[340px] glass-panel rounded-3xl p-6 border border-white/10 relative z-10 shadow-[0_40px_100px_-20px_rgba(255,29,126,0.3)]"
-              >
-                <div className="absolute -inset-px rounded-3xl bg-gradient-to-br from-accent-pink/20 via-transparent to-accent-violet/10 pointer-events-none" />
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2 font-mono text-[11px] text-accent-mint">
-                    <span className="w-2 h-2 rounded-full bg-accent-mint animate-pulse-dot" />
-                    COGNITIVE SCAN — LIVE
-                  </div>
-                  <span className="font-mono text-[10px] text-text-faint">01:24</span>
-                </div>
-                <div className="font-display font-bold text-base text-text-primary mb-1">What is Newton's First Law?</div>
-                <div className="font-mono text-[10px] text-text-faint mb-5">Showing same concept in 4 formats. We watch.</div>
-                <FingerprintWidget />
-              </motion.div>
-
-              {/* Floating modality cards */}
-              {modalityCards.map((c, i) => {
-                const positions = [
-                  { top: "4%", left: "-18%", iX: -40, iY: -30 },
-                  { top: "4%", right: "-18%", iX: 40, iY: -30 },
-                  { bottom: "8%", left: "-15%", iX: -40, iY: 30 },
-                  { bottom: "8%", right: "-15%", iX: 40, iY: 30 },
-                ];
-                const pos = positions[i];
-                return (
-                  <FloatingCard key={c.label} className="w-[150px] z-20" initialX={pos.iX} initialY={pos.iY} delay={0.6 + i * 0.15}
-                    style={{ position: "absolute", ...pos }}>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-lg">{c.icon}</span>
-                      <span className="font-display font-bold text-[12px] text-text-primary">{c.label}</span>
-                    </div>
-                    <div className="font-mono text-[9px] text-text-faint">{c.desc}</div>
-                    <div className="mt-2 h-1 bg-white/5 rounded-full overflow-hidden">
-                      <motion.div className="h-full rounded-full" style={{ backgroundColor: c.color }}
-                        initial={{ width: 0 }} animate={{ width: `${[82, 34, 51, 22][i]}%` }}
-                        transition={{ duration: 1.2, delay: 1 + i * 0.2, ease: "easeOut" }}
-                      />
-                    </div>
-                  </FloatingCard>
-                );
-              })}
-
-              {/* Intervention popup */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.7, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ delay: 2.8, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[280px] glass-panel rounded-2xl p-3.5 border border-accent-amber/30 bg-accent-amber/5 z-30 shadow-[0_20px_40px_rgba(0,0,0,0.5)]"
-              >
-                <div className="font-mono text-[9.5px] text-accent-amber uppercase font-bold mb-1 flex items-center gap-1.5">
-                  <Zap size={10} /> Struggle detected — switching modality
-                </div>
-                <div className="font-display text-[12px] text-text-primary">Narrative story unlocked for "inertia"</div>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-
-        {/* Scroll cue */}
-        <motion.div
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-text-faint"
-          animate={{ y: [0, 8, 0] }} transition={{ duration: 2, repeat: Infinity }}
-        >
-          <span className="font-mono text-[10px] uppercase tracking-wider">Scroll to explore</span>
-          <ChevronDown size={14} />
-        </motion.div>
-      </motion.section>
+      <HeroGeometric 
+        badge="AI-Native Adaptive Learning" 
+        title1="The tutor that" 
+        title2="learns how you learn." 
+        description="NeuroPath watches how you interact with a concept — hover, scroll, pause, re-read — and silently builds your cognitive profile. Then every lesson reshapes itself into the format your brain actually understands."
+      />
 
       {/* ════════════════ WHO IS THIS FOR ════════════════ */}
       <section className="relative z-10 py-28 px-6 md:px-16">
@@ -449,7 +281,7 @@ export default function Landing() {
           >
             <Badge color="violet">Who it's for</Badge>
             <h2 className="font-display font-black text-4xl md:text-6xl mt-4 mb-4 leading-tight">
-              One platform.<br /><span className="gradient-text-shift">Four different doors.</span>
+              One platform.<br /><span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-white/90 to-white/50">Four different doors.</span>
             </h2>
             <p className="text-text-dim text-lg max-w-xl mx-auto">
               Every role gets a purpose-built experience — not a stripped-down version of the same thing.
@@ -459,40 +291,59 @@ export default function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {roles.map((role, i) => {
               const colorMap = {
-                pink: { border: "hover:border-accent-pink/50", glow: "hover:shadow-[0_20px_60px_rgba(255,29,126,0.2)]", badge: "bg-accent-pink/10 text-accent-pinkLight border-accent-pink/30", btn: "from-accent-pink to-[#C2127F] shadow-[0_6px_20px_rgba(255,29,126,0.3)]", orb: "bg-accent-pink/15" },
-                violet: { border: "hover:border-accent-violet/50", glow: "hover:shadow-[0_20px_60px_rgba(123,47,247,0.2)]", badge: "bg-accent-violet/10 text-accent-violetLight border-accent-violet/30", btn: "from-accent-violet to-[#5a1fd4] shadow-[0_6px_20px_rgba(123,47,247,0.3)]", orb: "bg-accent-violet/15" },
-                mint: { border: "hover:border-accent-mint/50", glow: "hover:shadow-[0_20px_60px_rgba(21,207,160,0.2)]", badge: "bg-accent-mint/10 text-accent-mint border-accent-mint/30", btn: "from-accent-mint to-[#0fa57b] shadow-[0_6px_20px_rgba(21,207,160,0.3)]", orb: "bg-accent-mint/15" },
-                amber: { border: "hover:border-accent-amber/50", glow: "hover:shadow-[0_20px_60px_rgba(255,179,71,0.2)]", badge: "bg-accent-amber/10 text-accent-amber border-accent-amber/30", btn: "from-accent-amber to-[#e08000] shadow-[0_6px_20px_rgba(255,179,71,0.3)]", orb: "bg-accent-amber/15" },
+                pink: { hoverBorder: "hover:border-accent-pink/50", iconBg: "bg-accent-pink/10 border-accent-pink/30", iconText: "text-accent-pink", orb: "bg-accent-pink/20", glow: "hover:shadow-[0_0_40px_-10px_rgba(255,29,126,0.3)]" },
+                violet: { hoverBorder: "hover:border-accent-violet/50", iconBg: "bg-accent-violet/10 border-accent-violet/30", iconText: "text-accent-violetLight", orb: "bg-accent-violet/20", glow: "hover:shadow-[0_0_40px_-10px_rgba(123,47,247,0.3)]" },
+                mint: { hoverBorder: "hover:border-accent-mint/50", iconBg: "bg-accent-mint/10 border-accent-mint/30", iconText: "text-accent-mint", orb: "bg-accent-mint/20", glow: "hover:shadow-[0_0_40px_-10px_rgba(21,207,160,0.3)]" },
+                amber: { hoverBorder: "hover:border-accent-amber/50", iconBg: "bg-accent-amber/10 border-accent-amber/30", iconText: "text-accent-amber", orb: "bg-accent-amber/20", glow: "hover:shadow-[0_0_40px_-10px_rgba(255,179,71,0.3)]" },
               };
               const c = colorMap[role.color];
+              const IconComponent = role.icon;
               return (
                 <motion.div
                   key={role.id}
                   initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: i * 0.1 }} viewport={{ once: true, margin: "-50px" }}
-                  whileHover={{ y: -8 }}
+                  whileHover={{ y: -4 }}
                   onHoverStart={() => setHoveredRole(role.id)}
                   onHoverEnd={() => setHoveredRole(null)}
-                  className={`glass-panel rounded-3xl p-6 border border-white/8 ${c.border} ${c.glow} transition-all duration-300 flex flex-col relative overflow-hidden group cursor-pointer`}
+                  className={`bg-dark-card/30 backdrop-blur-md rounded-2xl p-6 border border-white/5 ${c.hoverBorder} ${c.glow} transition-all duration-300 flex flex-col relative overflow-hidden group cursor-pointer shadow-lg`}
                   onClick={() => navigate(role.path)}
                 >
-                  <div className={`absolute -top-16 -right-16 w-40 h-40 rounded-full ${c.orb} blur-2xl transition-opacity duration-300 ${hoveredRole === role.id ? "opacity-100" : "opacity-40"}`} />
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4 border ${c.badge} relative z-10`}>
-                    {role.icon}
+                  <div className={`absolute -top-24 -right-24 w-48 h-48 rounded-full ${c.orb} blur-3xl transition-all duration-500 ${hoveredRole === role.id ? "opacity-60 scale-110" : "opacity-0 scale-90"}`} />
+                  
+                  {/* Subtle noise/glitter texture overlay on hover */}
+                  <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-0 group-hover:opacity-100 mix-blend-overlay transition-opacity duration-500`} />
+
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-5 border ${c.iconBg} ${c.iconText} relative z-10 transition-colors shadow-[0_0_15px_currentColor] group-hover:shadow-[0_0_25px_currentColor]`}>
+                    <IconComponent size={20} />
                   </div>
-                  <h3 className="font-display font-bold text-xl text-text-primary mb-2 relative z-10">{role.label}</h3>
-                  <p className="text-text-dim text-sm leading-relaxed flex-1 mb-6 relative z-10">{role.desc}</p>
+                  <h3 className="font-display font-semibold text-lg text-white mb-2 relative z-10">{role.label}</h3>
+                  <p className="text-white/40 text-sm leading-relaxed flex-1 mb-8 relative z-10 font-light group-hover:text-white/60 transition-colors">{role.desc}</p>
                   <motion.button
-                    whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                    className={`w-full py-3 rounded-xl bg-gradient-to-r ${c.btn} text-white font-bold text-sm flex items-center justify-center gap-2 relative z-10`}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                    className={`w-full py-2.5 rounded-lg border border-white/10 ${c.hoverBorder} bg-white/5 hover:bg-white/10 text-white/80 hover:${c.iconText} font-medium text-sm flex items-center justify-center gap-2 relative z-10 transition-all`}
                     onClick={(e) => { e.stopPropagation(); navigate(role.path); }}
                   >
-                    {role.cta} <ArrowRight size={14} />
+                    {role.cta} <ArrowRight size={14} className="opacity-70 group-hover:translate-x-0.5 transition-transform" />
                   </motion.button>
                 </motion.div>
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* ════════════════ A/B MODALITY PROOF ════════════════ */}
+      <section className="relative z-10 py-20 px-6 md:px-16">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-60px" }}
+          >
+            <ModalityCompare />
+          </motion.div>
         </div>
       </section>
 

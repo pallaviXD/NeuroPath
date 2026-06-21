@@ -107,7 +107,7 @@ export default function Navigation() {
                     </div>
                     <button onClick={() => { navigate(getDashboardPath()); setUserMenuOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-text-dim hover:text-text-primary hover:bg-white/[0.04] transition-all text-left">
-                      <User size={14} /> My {user.role === "parent" ? "Portal" : "Dashboard"}
+                      <User size={14} /> {user.role === "parent" ? "My Portal" : user.role === "student" ? "My Lessons" : "My Dashboard"}
                     </button>
                     <button onClick={() => { logout(); navigate("/"); setUserMenuOpen(false); }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-accent-pink hover:bg-accent-pink/10 transition-all text-left">

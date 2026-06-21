@@ -4,11 +4,11 @@ import { Sparkles, ArrowRightLeft } from "lucide-react";
 export default function ForceDiagram({ lessonId }) {
   const [hoveredElement, setHoveredElement] = useState(null);
 
-  if (lessonId === "newtons-first-law") {
+  if (lessonId === "organizational-inertia") {
     const details = {
-      forceL: "Left Push force (F1 = 10N). This force acts horizontally to the left on the box's boundary.",
-      forceR: "Right Push force (F2 = 10N). This force acts horizontally to the right. It perfectly balances the left force.",
-      box: "Mass box (M = 5 kg). Since Left Force (10N) and Right Force (10N) cancel out, Net Force is exactly 0 Newtons. The mass remains static."
+      forceL: "Market Forces: Competitors and external market conditions pushing the company to innovate and adapt.",
+      forceR: "Internal Bureaucracy: The 'Status Quo'. Organizational resistance, legacy systems, and risk-aversion pushing back.",
+      box: "The Company: Unless external forces (Market) become greater than internal resistance (Bureaucracy), the company's strategy stays static."
     };
 
     return (
@@ -23,16 +23,16 @@ export default function ForceDiagram({ lessonId }) {
               onMouseEnter={() => setHoveredElement("forceL")}
               onMouseLeave={() => setHoveredElement(null)}
             >
-              <line x1="50" y1="50" x2="15" y2="50" stroke="#FF1D7E" strokeWidth="2.5" />
+              <line x1="45" y1="50" x2="15" y2="50" stroke="#FF1D7E" strokeWidth="2.5" />
               <polygon points="15,50 23,46 23,54" fill="#FF1D7E" />
-              <text x="25" y="40" fill="#FF1D7E" fontSize="7" fontFamily="monospace" fontWeight="bold">F1 = 10N</text>
+              <text x="25" y="40" fill="#FF1D7E" fontSize="6.5" fontFamily="monospace" fontWeight="bold">MARKET PUSH</text>
             </g>
 
             {/* Mass Box */}
             <rect 
-              x="80" 
+              x="75" 
               y="35" 
-              width="40" 
+              width="50" 
               height="30" 
               rx="4" 
               fill="#1C1525" 
@@ -42,7 +42,7 @@ export default function ForceDiagram({ lessonId }) {
               onMouseEnter={() => setHoveredElement("box")}
               onMouseLeave={() => setHoveredElement(null)}
             />
-            <text x="100" y="53" textAnchor="middle" fill="#B8B3C4" fontSize="8" fontWeight="bold" fontFamily="monospace">5 kg</text>
+            <text x="100" y="53" textAnchor="middle" fill="#B8B3C4" fontSize="7" fontWeight="bold" fontFamily="monospace">COMPANY</text>
 
             {/* Right force arrow */}
             <g 
@@ -50,9 +50,9 @@ export default function ForceDiagram({ lessonId }) {
               onMouseEnter={() => setHoveredElement("forceR")}
               onMouseLeave={() => setHoveredElement(null)}
             >
-              <line x1="150" y1="50" x2="185" y2="50" stroke="#15CFA0" strokeWidth="2.5" />
+              <line x1="155" y1="50" x2="185" y2="50" stroke="#15CFA0" strokeWidth="2.5" />
               <polygon points="185,50 177,46 177,54" fill="#15CFA0" />
-              <text x="150" y="40" fill="#15CFA0" fontSize="7" fontFamily="monospace" fontWeight="bold">F2 = 10N</text>
+              <text x="155" y="40" fill="#15CFA0" fontSize="6.5" fontFamily="monospace" fontWeight="bold">STATUS QUO</text>
             </g>
             
             {/* Dashed balance line */}
@@ -64,11 +64,11 @@ export default function ForceDiagram({ lessonId }) {
         <div className="w-full mt-4 min-h-[50px] p-3 bg-white/[0.02] border border-white/5 rounded-xl text-left">
           {hoveredElement ? (
             <p className="text-[12px] text-text-dim leading-relaxed">
-              <strong>{hoveredElement === "box" ? "Mass Frame:" : hoveredElement === "forceL" ? "Left vector:" : "Right vector:"}</strong> {details[hoveredElement]}
+              <strong>{hoveredElement === "box" ? "The Subject:" : hoveredElement === "forceL" ? "External Force:" : "Internal Force:"}</strong> {details[hoveredElement]}
             </p>
           ) : (
             <p className="text-[12px] text-text-faint font-mono flex items-center gap-1.5 justify-center py-1">
-              <Sparkles size={12} className="text-accent-pink" /> Hover over diagram nodes to view vector telemetry.
+              <Sparkles size={12} className="text-accent-pink" /> Hover over diagram nodes to view strategic forces.
             </p>
           )}
         </div>

@@ -1,24 +1,39 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, ArrowRight, BookOpen, Layers, CheckCircle2, ChevronRight, Award, Activity } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Layers, CheckCircle2, ChevronRight, Award, Activity, Loader2, PlayCircle, ExternalLink } from "lucide-react";
 import { useStore } from "../store/useStore";
-import { lessonsData } from "../data/lessonsData";
+import { getLesson, saveGeneratedLesson } from "../lib/lessons";
+import {
+  resolveStruggle,
+  generateStoryMode,
+  generateShorterMode,
+  generateSignMode,
+  generateFullSignStudy,
+  generateVisualMode,
+  isAgentConfigured,
+  isUsingProxy,
+} from "../lib/neuropath-agent";
 import { dbService } from "../lib/firebase";
 import ForceDiagram from "../components/ForceDiagram";
 import MoleculeBuilder from "../components/MoleculeBuilder";
-import SigningAvatar from "../components/SigningAvatar";
+import WikiImageFetcher from "../components/WikiImageFetcher";
+import ReadAndTranslate from "../components/ReadAndTranslate";
+import UnmuteAvatar from "../components/UnmuteAvatar";
+import SignStudyPlayer from "../components/SignStudyPlayer";
+import LessonChoice from "../components/LessonChoice";
 
 export default function Lesson() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
-  const lesson = lessonsData[lessonId];
+  const lesson = getLesson(lessonId);
 
   const {
     studentProfile,
     activeModality,
     setActiveModality,
-    triggerStruggleIntervention
+    triggerStruggleIntervention,
+    confirmInterventionOutcome,
   } = useStore();
 
   const [lessonComplete, setLessonComplete] = useState(false);
@@ -35,11 +50,24 @@ export default function Lesson() {
   // Intervention pipeline states
   const [activeIntervention, setActiveIntervention] = useState(null);
   const [pipelineState, setPipelineState] = useState({ active: false, step: 0 });
+  const [postInterventionCheck, setPostInterventionCheck] = useState(false);
+  const [postInterventionAttempts, setPostInterventionAttempts] = useState(0);
+  const [attemptsBeforeIntervention, setAttemptsBeforeIntervention] = useState(0);
+  const [interventionStartedAt, setInterventionStartedAt] = useState(null);
+  const [interventionOutcome, setInterventionOutcome] = useState(null);
+
+  // On-demand generation states
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState("");
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [visualSubMode, setVisualSubMode] = useState("media");
 
   // Refs for tracking telemetry struggle
   const lastScrollTime = useRef(Date.now());
   const paragraphRef = useRef(null);
   const containerRef = useRef(null);
+  const isResolvingStruggle = useRef(false);
+  const signAutoTriggered = useRef(false);
   
   // Timer for assessment idleness
   const idleTimerRef = useRef(null);
@@ -48,12 +76,12 @@ export default function Lesson() {
   // Initialize modality
   useEffect(() => {
     if (!lesson) return;
-    if (studentProfile.primary) {
-      setActiveModality(studentProfile.primary);
-    } else {
-      // Default fallback if student navigated here directly
-      setActiveModality("visual");
-    }
+    
+    // Always reset to null so the user always sees the choice menu
+    if (!lesson.modalities) lesson.modalities = {};
+    setActiveModality(null);
+    setVisualSubMode("media");
+    setIsPlayingVideo(false);
     
     // Reset state
     setLessonComplete(false);
@@ -66,8 +94,15 @@ export default function Lesson() {
     setMicroResolved(false);
     setActiveIntervention(null);
     setPipelineState({ active: false, step: 0 });
+    setPostInterventionCheck(false);
+    setPostInterventionAttempts(0);
+    setAttemptsBeforeIntervention(0);
+    setInterventionStartedAt(null);
+    setInterventionOutcome(null);
     isQuestionActive.current = false;
-  }, [lessonId, studentProfile.primary]);
+  }, [lessonId, studentProfile.primary, studentProfile.deafOrHoh]);
+
+  // (Auto-sign generation removed — user must explicitly choose via LessonChoice)
 
   // 1. STRUGGLE DETECTION: Re-reading scroll check
   useEffect(() => {
@@ -128,46 +163,135 @@ export default function Lesson() {
     return !!activeIntervention;
   };
 
-  // Trigger Intervention Pipeline
-  const triggerStruggle = (type, details) => {
-    if (activeIntervention) return; // Only trigger one intervention per session
-    
-    // Start Pipeline animation step-by-step
+  const ensureModalityReady = async (modality, adaptedSnippet) => {
+    if (!lesson.modalities) lesson.modalities = {};
+    if (lesson.modalities[modality]) return;
+
+    if (modality === "narrative") {
+      setGenerationStatus("Generating narrative adaptation...");
+      lesson.modalities.narrative = await generateStoryMode(lesson);
+    } else if (modality === "sign") {
+      setGenerationStatus("Translating full syllabus to SgSL signs...");
+      lesson.modalities.sign = await generateFullSignStudy(lesson);
+    } else if (modality === "shorter") {
+      setGenerationStatus("Compressing explanation...");
+      lesson.modalities.shorter = await generateShorterMode(lesson);
+    } else if (modality === "visual") {
+      setGenerationStatus("Fetching visual resources & diagrams...");
+      lesson.modalities.visual = await generateVisualMode(lesson);
+    } else if (modality === "kinesthetic") {
+      lesson.modalities.kinesthetic = {
+        instructions:
+          adaptedSnippet ||
+          "Interact with the simulation below to explore how forces and variables relate to this concept.",
+      };
+    }
+
+    saveGeneratedLesson(lesson);
+  };
+
+  // Trigger Intervention Pipeline — calls Gemini agent when configured
+  const triggerStruggle = async (type, details) => {
+    if (activeIntervention || isResolvingStruggle.current) return;
+    isResolvingStruggle.current = true;
+
     setPipelineState({ active: true, step: 0 });
-    
-    const steps = [
-      () => setPipelineState({ active: true, step: 1 }), // Checked Profile
-      () => setPipelineState({ active: true, step: 2 }), // Generated Explanation
-      () => setPipelineState({ active: true, step: 3 }), // Translate (if sign)
-      () => {
-        // Resolve pipeline & deliver intervention
-        setPipelineState({ active: false, step: 4 });
-        
-        // Pick a secondary modality different from active
-        let nextModality = "visual";
-        if (activeModality === "visual") nextModality = "narrative";
-        else if (activeModality === "narrative") nextModality = "kinesthetic";
-        else if (activeModality === "kinesthetic") nextModality = "sign";
-        else if (activeModality === "sign") nextModality = "visual";
 
-        // Save intervention in store
-        triggerStruggleIntervention("current_user", lesson.title, type, nextModality);
+    const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+    const currentModality = activeModality || studentProfile.primary || "visual";
 
-        // Update modality and display intervention explanation
-        setActiveModality(nextModality);
-        setActiveIntervention({
-          type,
-          details,
-          message: getInterventionMessage(nextModality)
-        });
-      }
-    ];
+    await pause(300);
+    setPipelineState({ active: true, step: 1 });
 
-    // Play tick sequence
-    setTimeout(steps[0], 400);
-    setTimeout(steps[1], 800);
-    setTimeout(steps[2], 1200);
-    setTimeout(steps[3], 1800);
+    let resolution;
+    try {
+      resolution = await resolveStruggle({
+        struggleType: type,
+        struggleDetails: details,
+        currentModality,
+        studentProfile,
+        lesson: {
+          title: lesson.title,
+          subject: lesson.subject,
+          description: lesson.description,
+        },
+        microAttempts,
+      });
+    } catch (err) {
+      console.warn("[Lesson] resolveStruggle failed:", err);
+      resolution = {
+        recommendedModality:
+          currentModality === "visual"
+            ? "narrative"
+            : currentModality === "narrative"
+              ? "kinesthetic"
+              : currentModality === "kinesthetic"
+                ? "sign"
+                : "visual",
+        interventionMessage: getInterventionMessage("visual"),
+        adaptedSnippet: null,
+        profileAnalysis: null,
+        modalityRationale: null,
+        teacherNote: null,
+        source: "fallback",
+      };
+    }
+
+    setPipelineState({ active: true, step: 2 });
+    await pause(400);
+    setPipelineState({ active: true, step: 3 });
+
+    const nextModality = resolution.recommendedModality;
+    try {
+      setIsGenerating(true);
+      await ensureModalityReady(nextModality, resolution.adaptedSnippet);
+    } catch (err) {
+      console.warn("[Lesson] modality generation failed:", err);
+      setIsGenerating(false);
+      setGenerationStatus("");
+      setPipelineState({ active: false, step: 0 });
+      isResolvingStruggle.current = false;
+      alert("Failed to generate adaptation. The AI API quota may have been exceeded. Please wait a minute and try again.");
+      return;
+    } finally {
+      setIsGenerating(false);
+      setGenerationStatus("");
+    }
+
+    triggerStruggleIntervention("current_user", lesson.title, type, nextModality, {
+      modalityRationale: resolution.modalityRationale,
+      teacherNote: resolution.teacherNote,
+      source: resolution.source,
+      interventionMessage: resolution.interventionMessage,
+      adaptedSnippet: resolution.adaptedSnippet,
+    });
+
+    setAttemptsBeforeIntervention(microAttempts);
+    setPostInterventionCheck(true);
+    setPostInterventionAttempts(0);
+    setInterventionStartedAt(Date.now());
+    setMicroAnswer(null);
+    setMicroResolved(false);
+
+    if (nextModality === "sign") {
+      setActiveModality("visual");
+      setVisualSubMode("sign");
+    } else {
+      setActiveModality(nextModality);
+    }
+    setActiveIntervention({
+      type,
+      details,
+      message:
+        resolution.interventionMessage || getInterventionMessage(nextModality),
+      adaptedSnippet: resolution.adaptedSnippet,
+      profileAnalysis: resolution.profileAnalysis,
+      modalityRationale: resolution.modalityRationale,
+      source: resolution.source,
+    });
+
+    setPipelineState({ active: false, step: 4 });
+    isResolvingStruggle.current = false;
   };
 
   const getInterventionMessage = (modality) => {
@@ -192,12 +316,26 @@ export default function Lesson() {
 
     if (index === lesson.microCheck.answerIndex) {
       setMicroResolved(true);
-      // If corrected after failing
-      if (microAttempts > 0) {
+
+      if (postInterventionCheck) {
+        const durationSec = interventionStartedAt
+          ? Math.round((Date.now() - interventionStartedAt) / 1000)
+          : 0;
+        const outcome = {
+          attemptsBefore: attemptsBeforeIntervention,
+          attemptsAfter: postInterventionAttempts + 1,
+          durationSec,
+          modality: activeModality,
+        };
+        setInterventionOutcome(outcome);
+        confirmInterventionOutcome("current_user", lesson.title, outcome);
+      } else if (microAttempts > 0) {
         triggerStruggle("wrong-then-correct", "corrected check answer immediately");
       }
+    } else if (postInterventionCheck) {
+      setPostInterventionAttempts((prev) => prev + 1);
     } else {
-      setMicroAttempts(prev => prev + 1);
+      setMicroAttempts((prev) => prev + 1);
     }
   };
 
@@ -230,10 +368,83 @@ export default function Lesson() {
         lessonId,
         lessonTitle: lesson.title,
         score: finalScore,
-        duration: 300, // mock duration
-        date: new Date().toISOString().split('T')[0],
-        adapted: !!activeIntervention
+        duration: 300,
+        date: new Date().toISOString().split("T")[0],
+        adapted: !!activeIntervention,
+        interventionOutcome: interventionOutcome || null,
       });
+    }
+  };
+
+  // Handle user's on-demand choice
+  const handleChoice = async (modality, subType = null) => {
+    if (modality === "visual") {
+      if (subType === "sign") {
+        setVisualSubMode("sign");
+        if (!lesson.modalities?.sign) {
+          setIsGenerating(true);
+          setGenerationStatus("Translating full syllabus to SgSL signs...");
+          try {
+            if (!lesson.modalities) lesson.modalities = {};
+            lesson.modalities.sign = await generateFullSignStudy(lesson);
+            saveGeneratedLesson(lesson);
+          } catch (e) {
+            console.error(e);
+            alert("Failed to generate sign mode. The AI API quota may have been exceeded.");
+            return;
+          } finally {
+            setIsGenerating(false);
+            setGenerationStatus("");
+          }
+        }
+      } else {
+        setVisualSubMode("media");
+        if (!lesson.modalities?.visual) {
+          setIsGenerating(true);
+          setGenerationStatus("Fetching visual resources & diagrams...");
+          try {
+            if (!lesson.modalities) lesson.modalities = {};
+            lesson.modalities.visual = await generateVisualMode(lesson);
+            saveGeneratedLesson(lesson);
+          } catch (e) {
+            console.error(e);
+            alert("Failed to generate visual mode. The AI API quota may have been exceeded.");
+            return;
+          } finally {
+            setIsGenerating(false);
+            setGenerationStatus("");
+          }
+        }
+      }
+      setActiveModality("visual");
+      return;
+    }
+
+    if (lesson.modalities[modality]) {
+      setActiveModality(modality);
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      let content;
+      if (modality === "narrative") {
+        setGenerationStatus("Generating relatable story analogy...");
+        content = await generateStoryMode(lesson);
+        lesson.modalities.narrative = content;
+      } else if (modality === "shorter") {
+        setGenerationStatus("Compressing to concise facts...");
+        content = await generateShorterMode(lesson);
+        lesson.modalities.shorter = content;
+      }
+
+      saveGeneratedLesson(lesson);
+      setActiveModality(modality);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to generate content. Please try again.");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -259,18 +470,29 @@ export default function Lesson() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
         
         {/* Left Side: Lesson Viewer */}
-        <div ref={containerRef} className="lg:col-span-8 glass-panel rounded-[28px] border border-white/10 p-6 md:p-8 text-left min-h-[460px] flex flex-col justify-between max-h-[75vh] overflow-y-auto">
+        <div ref={containerRef} className="lg:col-span-8 glass-panel rounded-[28px] border border-white/10 p-6 md:p-8 text-left min-h-[460px] flex flex-col justify-between max-h-[75vh] overflow-y-auto relative">
           
-          {!showAssessment ? (
+          {isGenerating ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-[28px]">
+              <Loader2 className="animate-spin text-accent-blue mb-4" size={32} />
+              <p className="text-text-primary font-medium">{generationStatus}</p>
+            </div>
+          ) : (!activeModality || (activeModality !== "visual" && !lesson.modalities?.[activeModality])) ? (
+            <LessonChoice onChoice={handleChoice} />
+          ) : !showAssessment ? (
             // ============ LESSON CONTENT VIEW ============
             <div>
               <div className="flex items-center justify-between mb-4">
                 <span className="font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase">
                   {lesson.subject}
                 </span>
-                <span className="font-mono text-[10px] text-text-faint uppercase">
-                  Rendering: {activeModality} mode
-                </span>
+                <button 
+                  onClick={() => setActiveModality(null)}
+                  className="font-mono text-[10px] text-text-faint hover:text-white border border-white/10 hover:border-white/30 px-2 py-1 rounded uppercase transition-colors cursor-pointer"
+                  title="Click to switch learning modality"
+                >
+                  Rendering: {activeModality} mode ▾
+                </button>
               </div>
               
               <h2 className="font-display font-bold text-2xl md:text-3xl text-text-primary mb-5">
@@ -283,10 +505,109 @@ export default function Lesson() {
                 {/* 1. VISUAL */}
                 {activeModality === "visual" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed">
-                      {lesson.modalities.visual.content}
-                    </p>
-                    <ForceDiagram lessonId={lessonId} />
+                    {/* Visual Mode Sub-tabs */}
+                    <div className="flex gap-4 border-b border-white/10 mb-6">
+                      <button
+                        onClick={() => setVisualSubMode("media")}
+                        className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
+                          visualSubMode === "media"
+                            ? "border-accent-pink text-text-primary font-bold"
+                            : "border-transparent text-text-faint hover:text-text-dim"
+                        }`}
+                      >
+                        Media & Diagrams
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setVisualSubMode("sign");
+                          if (!lesson.modalities?.sign) {
+                            setIsGenerating(true);
+                            setGenerationStatus("Translating full syllabus to SgSL signs...");
+                            try {
+                              if (!lesson.modalities) lesson.modalities = {};
+                              lesson.modalities.sign = await generateFullSignStudy(lesson);
+                              saveGeneratedLesson(lesson);
+                            } catch (err) {
+                              console.error(err);
+                            } finally {
+                              setIsGenerating(false);
+                              setGenerationStatus("");
+                            }
+                          }
+                        }}
+                        className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
+                          visualSubMode === "sign"
+                            ? "border-accent-pink text-text-primary font-bold"
+                            : "border-transparent text-text-faint hover:text-text-dim"
+                        }`}
+                      >
+                        3D Sign Study
+                      </button>
+                    </div>
+
+                    {visualSubMode === "media" ? (
+                      <div className="space-y-5">
+                        <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed">
+                          {lesson.modalities.visual.content}
+                        </p>
+                        {lessonId === "newtons-first-law" ? (
+                          <ForceDiagram lessonId={lessonId} />
+                        ) : lessonId === "cellular-respiration" ? (
+                          <MoleculeBuilder lessonId={lessonId} />
+                        ) : (
+                          <WikiImageFetcher 
+                            topic={lesson.modalities.visual.wikiTopic || lesson.title} 
+                            searchQuery={lesson.modalities.visual.searchQuery}
+                          />
+                        )}
+
+                        {/* Video Resources */}
+                        {lesson.modalities.visual.videos?.length > 0 && (
+                          <div className="mt-6 space-y-3">
+                            <h4 className="font-display font-semibold text-sm text-text-primary mb-3 flex items-center gap-2">
+                              <PlayCircle size={16} className="text-accent-blue" />
+                              Recommended Video Resources
+                            </h4>
+                            
+                            {lesson.modalities.visual.videos.map((vid, i) => {
+                              const ytLink = vid.url || `https://www.youtube.com/results?search_query=${encodeURIComponent(vid.searchQuery || vid.title)}`;
+                              return (
+                                <a key={i} href={ytLink} target="_blank" rel="noreferrer" className="block p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-accent-blue/40 transition-all group">
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                      <div className="text-[13px] font-semibold text-text-primary group-hover:text-accent-blue transition-colors">{vid.title}</div>
+                                      <div className="text-[11px] text-text-faint mt-1">{vid.channel} • {vid.duration}</div>
+                                    </div>
+                                    <ExternalLink size={14} className="text-text-faint group-hover:text-accent-blue" />
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-5">
+                        {lesson.modalities.sign?.summaryGloss && (
+                          <p className="font-mono text-[11px] text-accent-mint/80 uppercase tracking-wider text-center">
+                            {lesson.modalities.sign.summaryGloss}
+                          </p>
+                        )}
+                        {lesson.modalities.sign ? (
+                          <SignStudyPlayer
+                            signData={lesson.modalities.sign}
+                            signSystem={lesson.modalities.sign.signSystem || "SgSL"}
+                          />
+                        ) : (
+                          <div className="text-center py-8 text-text-faint text-xs font-mono">
+                            Sign translation not loaded. Click "3D Sign Study" to generate.
+                          </div>
+                        )}
+                        <p className="text-[11px] text-text-faint font-mono text-center">
+                          Visual-only mode — study the full syllabus through 3D signs without reading the text.
+                        </p>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -296,9 +617,10 @@ export default function Lesson() {
                     <h4 className="font-display font-semibold text-text-primary text-md">
                       {lesson.modalities.narrative.storyTitle}
                     </h4>
-                    <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed whitespace-pre-line bg-white/[0.01] border border-white/5 p-4 rounded-2xl italic">
-                      {lesson.modalities.narrative.content}
-                    </p>
+                    <ReadAndTranslate 
+                      originalText={lesson.modalities.narrative.content} 
+                      className="text-text-dim text-[14.5px] leading-relaxed whitespace-pre-line bg-white/[0.01] border border-white/5 p-4 rounded-2xl italic" 
+                    />
                   </motion.div>
                 )}
 
@@ -312,46 +634,80 @@ export default function Lesson() {
                   </motion.div>
                 )}
 
-                {/* 4. SIGN LANGUAGE */}
-                {activeModality === "sign" && (
+                {/* SHORTER */}
+                {activeModality === "shorter" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed">
-                      {lesson.modalities.sign.text}
-                    </p>
-                    <SigningAvatar glossSequence={lesson.modalities.sign.gloss} />
+                    <div className="bg-accent-mint/10 border border-accent-mint/20 p-5 rounded-2xl">
+                      <ReadAndTranslate 
+                        originalText={lesson.modalities.shorter.content} 
+                        className="text-text-dim text-[15px] leading-relaxed whitespace-pre-line" 
+                      />
+                    </div>
                   </motion.div>
                 )}
 
               </div>
 
               {/* Inline concept checkpoint */}
-              <div className="mt-8 pt-6 border-t border-dashed border-white/10 text-left">
-                <h4 className="font-display font-semibold text-sm text-text-primary mb-3">Concept Checkpoint</h4>
-                <p className="text-xs text-text-dim mb-4">{lesson.microCheck.question}</p>
-                <div className="space-y-2">
-                  {lesson.microCheck.options.map((opt, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleMicroCheck(index)}
-                      className={`w-full p-3 rounded-xl border text-left text-[12.5px] transition-colors cursor-pointer ${
-                        microAnswer === index 
-                          ? index === lesson.microCheck.answerIndex
-                            ? "bg-accent-mint/15 border-accent-mint text-accent-mint"
-                            : "bg-accent-pink/15 border-accent-pink text-accent-pink"
-                          : "bg-white/[0.02] border-white/5 text-text-dim hover:bg-white/5"
-                      }`}
+              {lesson.microCheck && (
+                <div className="mt-8 pt-6 border-t border-dashed border-white/10 text-left">
+                  <h4 className="font-display font-semibold text-sm text-text-primary mb-1">
+                    {postInterventionCheck ? "Post-Adaptation Check" : "Concept Checkpoint"}
+                  </h4>
+                  {postInterventionCheck && !interventionOutcome && (
+                    <p className="text-[11px] text-accent-amber font-mono mb-3">
+                      Review the adapted {activeModality} explanation above, then verify your understanding.
+                    </p>
+                  )}
+                  <p className="text-xs text-text-dim mb-4">{lesson.microCheck.question}</p>
+                  <div className="space-y-2">
+                    {lesson.microCheck.options && lesson.microCheck.options.map((opt, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleMicroCheck(index)}
+                        className={`w-full p-3 rounded-xl border text-left text-[12.5px] transition-colors cursor-pointer ${
+                          microAnswer === index 
+                            ? index === lesson.microCheck.answerIndex
+                              ? "bg-accent-mint/15 border-accent-mint text-accent-mint"
+                              : "bg-accent-pink/15 border-accent-pink text-accent-pink"
+                            : "bg-white/[0.02] border-white/5 text-text-dim hover:bg-white/5"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  
+                  {microResolved && interventionOutcome && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 p-4 bg-accent-violet/10 border border-accent-violet/30 rounded-xl text-xs"
                     >
-                      {opt}
-                    </button>
-                  ))}
+                      <div className="font-mono text-[10px] text-accent-violetLight font-bold uppercase tracking-wider mb-2">
+                        Adaptation verified
+                      </div>
+                      <p className="text-text-dim leading-relaxed">
+                        Cleared in <strong className="text-accent-mint">{interventionOutcome.attemptsAfter} attempt{interventionOutcome.attemptsAfter !== 1 ? "s" : ""}</strong> after{" "}
+                        <strong className="text-text-primary">{activeModality}</strong> intervention
+                        {interventionOutcome.attemptsBefore > 0 && (
+                          <> (was {interventionOutcome.attemptsBefore} before adaptation)</>
+                        )}
+                        {interventionOutcome.durationSec > 0 && (
+                          <> · resolved in {interventionOutcome.durationSec}s</>
+                        )}
+                        .
+                      </p>
+                    </motion.div>
+                  )}
+
+                  {microResolved && !interventionOutcome && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-3 bg-accent-mint/5 border border-accent-mint/20 rounded-xl text-xs text-accent-mint">
+                      <strong>Correct!</strong> {lesson.microCheck.explanation}
+                    </motion.div>
+                  )}
                 </div>
-                
-                {microResolved && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-4 p-3 bg-accent-mint/5 border border-accent-mint/20 rounded-xl text-xs text-accent-mint">
-                    <strong>Correct!</strong> {lesson.microCheck.explanation}
-                  </motion.div>
-                )}
-              </div>
+              )}
 
             </div>
           ) : (
@@ -427,11 +783,16 @@ export default function Lesson() {
         {/* Right Side: Telemetry Status & Intervention Pipe */}
         <div className="lg:col-span-4 flex flex-col gap-6">
           
-          {/* Active Adaptive pipeline simulator */}
+          {/* Active Adaptive pipeline */}
           <div className="glass-panel rounded-2xl p-6 text-left border border-white/10">
-            <h3 className="font-display font-bold text-[15px] mb-3 text-text-primary flex items-center gap-2">
-              <Activity className="text-accent-pink" size={16} />
-              Struggle Resolution Pipeline
+            <h3 className="font-display font-bold text-[15px] mb-3 text-text-primary flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <Activity className="text-accent-pink" size={16} />
+                Struggle Resolution Pipeline
+              </span>
+              <span className="font-mono text-[9px] uppercase tracking-wider text-text-faint">
+                {isAgentConfigured() ? (isUsingProxy() ? "Gemini proxy" : "Gemini agent") : "Rule fallback"}
+              </span>
             </h3>
             
             <div className="space-y-4 mt-5">
@@ -473,10 +834,35 @@ export default function Lesson() {
                   Micro-Intervention Fired
                 </h4>
                 <p className="text-xs text-text-faint font-mono mb-3">
-                  Reason: {activeIntervention.type === "re-reading" ? "Gaze re-reading patterns" : activeIntervention.type === "idle-timer" ? "Assessment response delay" : "Correction sequence"}
+                  Reason:{" "}
+                  {activeIntervention.type === "re-reading"
+                    ? "Gaze re-reading patterns"
+                    : activeIntervention.type === "idle-timer"
+                      ? "Assessment response delay"
+                      : activeIntervention.type === "wrong-then-correct"
+                        ? "Wrong answer, then self-corrected"
+                        : "Correction sequence"}
                 </p>
+                {activeIntervention.profileAnalysis && (
+                  <p className="text-[11px] text-accent-violetLight/90 font-mono mb-2">
+                    Profile: {activeIntervention.profileAnalysis}
+                  </p>
+                )}
+                {activeIntervention.modalityRationale && (
+                  <p className="text-[11px] text-text-faint mb-3 leading-relaxed">
+                    {activeIntervention.modalityRationale}
+                  </p>
+                )}
                 <p className="text-[13px] text-text-dim leading-relaxed font-body">
                   {activeIntervention.message}
+                </p>
+                {activeIntervention.adaptedSnippet && (
+                  <p className="mt-3 pt-3 border-t border-accent-amber/20 text-[12.5px] text-text-dim leading-relaxed italic">
+                    {activeIntervention.adaptedSnippet}
+                  </p>
+                )}
+                <p className="mt-3 font-mono text-[9px] uppercase tracking-wider text-text-faint">
+                  Source: {activeIntervention.source === "gemini" ? "Gemini 2.5 Flash" : "Profile rotation fallback"}
                 </p>
               </motion.div>
             )}

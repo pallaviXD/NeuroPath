@@ -15,6 +15,8 @@ import Analytics from "./routes/Dashboard/Analytics";
 import LiveLog from "./routes/Dashboard/LiveLog";
 import SignLanguageView from "./routes/Dashboard/SignLanguageView";
 import StudentDetail from "./routes/Dashboard/StudentDetail";
+import ContentManager from "./routes/Dashboard/ContentManager";
+import SavedLessons from "./routes/Dashboard/SavedLessons";
 
 // Pages that manage their own full-screen layout (no shared nav)
 const STANDALONE_PATHS = ["/login", "/signup", "/parent"];
@@ -36,6 +38,8 @@ function AppShell() {
             <Route path="analytics" element={<Analytics />} />
             <Route path="live-log" element={<LiveLog />} />
             <Route path="sign-language" element={<SignLanguageView />} />
+            <Route path="content" element={<ContentManager />} />
+            <Route path="saved" element={<SavedLessons />} />
             <Route path="student/:id" element={<StudentDetail />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
