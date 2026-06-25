@@ -1,300 +1,359 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Brain, Activity, Clock, Target, CheckCircle, XCircle, ShieldAlert, Sparkles, Loader } from "lucide-react";
+import { ArrowRight, Brain, Zap, Eye, Hand, BookOpen, CheckCircle, XCircle, Sparkles, Volume2 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import BalloonGame from "../components/BalloonGame";
 import StoryQuiz from "../components/StoryQuiz";
 
-function SlideWrapper({ children, direction = 1 }) {
+/* ── Particle burst on step complete ── */
+function Burst({ trigger }) {
+  const particles = Array.from({ length: 18 }, (_, i) => ({
+    id: i, angle: (i / 18) * 360,
+    color: ["#FF1D7E","#7B2FF7","#15CFA0","#FFB347"][i % 4],
+  }));
   return (
-    <motion.div
-      initial={{ opacity: 0, x: 40 * direction }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: -40 * direction }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
-      className="w-full"
-    >
-      {children}
-    </motion.div>
+    <AnimatePresence>
+      {trigger && particles.map(p => (
+        <motion.div key={p.id} className="absolute w-2 h-2 rounded-full pointer-events-none z-50"
+          style={{ backgroundColor: p.color, top: "50%", left: "50%" }}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          animate={{
+            x: Math.cos(p.angle * Math.PI / 180) * (60 + Math.random() * 60),
+            y: Math.sin(p.angle * Math.PI / 180) * (60 + Math.random() * 60),
+            opacity: 0, scale: 0,
+          }}
+          transition={{ duration: 0.7, ease: "easeOut" }}
+        />
+      ))}
+    </AnimatePresence>
   );
 }
 
+/* ── Step indicator ── */
 const STEPS = [
-  { id: "welcome", label: "Welcome" },
-  { id: "explanation", label: "How We Learn" },
-  { id: "balloon", label: "Kinesthetic" },
-  { id: "story", label: "Comprehension" },
-  { id: "generating", label: "Generation" },
-  { id: "result", label: "Fingerprint" }
+  { id: "welcome", label: "Start", icon: "👋" },
+  { id: "balloon", label: "Reflex", icon: "🎯" },
+  { id: "story", label: "Story", icon: "📖" },
+  { id: "generating", label: "Scan", icon: "🧬" },
+  { id: "result", label: "Profile", icon: "🔐" },
 ];
 
+function StepDots({ current }) {
+  const idx = STEPS.findIndex(s => s.id === current);
+  return (
+    <div className="flex items-center gap-3 mb-10">
+      {STEPS.map((s, i) => (
+        <div key={s.id} className="flex items-center gap-3">
+          <motion.div animate={{ scale: i === idx ? 1.2 : 1 }}
+            className={`relative flex items-center justify-center w-9 h-9 rounded-full border-2 font-mono text-[11px] font-bold transition-all duration-400 ${
+              i < idx ? "border-accent-mint bg-accent-mint text-dark-bg" :
+              i === idx ? "border-accent-pink bg-accent-pink/15 text-accent-pink shadow-[0_0_16px_rgba(255,29,126,0.4)]" :
+              "border-white/15 text-text-faint bg-transparent"
+            }`}>
+            {i < idx ? <CheckCircle size={14} /> : s.icon}
+            {i === idx && (
+              <motion.div className="absolute -inset-1 rounded-full border-2 border-accent-pink/30"
+                animate={{ scale: [1, 1.4, 1], opacity: [0.8, 0, 0.8] }}
+                transition={{ duration: 1.8, repeat: Infinity }} />
+            )}
+          </motion.div>
+          {i < STEPS.length - 1 && (
+            <div className="w-8 h-0.5 rounded-full overflow-hidden bg-white/8">
+              <motion.div className="h-full bg-gradient-to-r from-accent-pink to-accent-mint rounded-full"
+                animate={{ width: i < idx ? "100%" : "0%" }}
+                transition={{ duration: 0.5, delay: 0.1 }} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── Main ── */
 export default function Onboarding() {
   const navigate = useNavigate();
   const { computeCognitiveBaseline } = useStore();
-
-  const [step, setStep] = useState("welcome"); // welcome, explanation, balloon, story, generating, result
+  const [step, setStep] = useState("welcome");
   const [results, setResults] = useState([]);
-  const [accessibilityFlag, setAccessibilityFlag] = useState("none");
+  const [deaf, setDeaf] = useState(false);
   const [profile, setProfile] = useState(null);
-  const [genStatusIndex, setGenStatusIndex] = useState(0);
+  const [genLine, setGenLine] = useState(0);
+  const [burst, setBurst] = useState(false);
 
-  const genStatuses = [
-    "Reading kinetic coordination profiles...",
-    "Correlating gaze-duration arrays...",
-    "Simplifying syntax vectors...",
-    "Engraving cognitive fingerprint locks...",
-    "Calibration matrix complete ✓"
+  const GEN_LINES = [
+    "Parsing kinetic coordination signals...",
+    "Mapping cognitive pattern vectors...",
+    "Correlating reading-speed ratios...",
+    "Locking modality preference matrix...",
+    "Fingerprint engraved ✓",
   ];
 
-  const getStepIndex = (s) => {
-    switch (s) {
-      case "welcome": return 0;
-      case "explanation": return 1;
-      case "balloon": return 2;
-      case "story": return 3;
-      case "generating": return 4;
-      case "result": return 5;
-      default: return 0;
-    }
-  };
+  const fireBurst = () => { setBurst(true); setTimeout(() => setBurst(false), 800); };
 
   const handleTaskComplete = (result) => {
-    const newResults = [...results, result];
-    setResults(newResults);
-
-    if (step === "balloon") {
-      setStep("story");
-    } else if (step === "story") {
-      setStep("generating");
-    }
+    const next = [...results, result];
+    setResults(next);
+    fireBurst();
+    if (step === "balloon") setStep("story");
+    else if (step === "story") setStep("generating");
   };
 
-  // Simulating the profile generation steps with status text changes
   useEffect(() => {
     if (step !== "generating") return;
-
-    let idx = 0;
-    const interval = setInterval(() => {
-      idx++;
-      if (idx < genStatuses.length) {
-        setGenStatusIndex(idx);
-      } else {
-        clearInterval(interval);
-        const finalProfile = computeCognitiveBaseline({
-          quizResults: results,
-          accessibilityFlag
-        });
-        setProfile(finalProfile);
-        setStep("result");
+    let i = 0;
+    const iv = setInterval(() => {
+      i++;
+      if (i < GEN_LINES.length) { setGenLine(i); }
+      else {
+        clearInterval(iv);
+        const p = computeCognitiveBaseline({ quizResults: results, accessibilityFlag: deaf ? "deaf" : "none" });
+        setProfile(p);
+        setTimeout(() => { fireBurst(); setStep("result"); }, 400);
       }
-    }, 1000);
+    }, 800);
+    return () => clearInterval(iv);
+  }, [step]);
 
-    return () => clearInterval(interval);
-  }, [step, results, accessibilityFlag]);
-
-  const renderWelcome = () => (
-    <SlideWrapper>
-      <div className="max-w-xl mx-auto text-center space-y-6">
-        <div className="inline-flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.12em] text-accent-violetLight bg-accent-violet/10 border border-accent-violet/30 px-4 py-1.5 rounded-full uppercase">
-          <Brain size={12} />
-          Cognitive Calibration
-        </div>
-        <h1 className="font-display font-bold text-4xl tracking-tight text-text-primary">
-          Let's calibrate your brain.
-        </h1>
-        <p className="text-text-dim text-sm leading-relaxed max-w-lg mx-auto font-sans">
-          To build your custom learning interface, NeuroPath runs a rapid sensor sweep of your comprehension rates, cognitive timing, and effort styles.
-        </p>
-
-        <div className="p-4 rounded-xl border border-white/10 bg-white/5 text-left space-y-3">
-          <p className="font-mono text-[10px] uppercase tracking-wider text-text-faint">
-            Learning Modality Preference
-          </p>
-          <label className="flex items-center gap-3 cursor-pointer group text-xs select-none">
-            <input 
-              type="checkbox"
-              checked={accessibilityFlag === "deaf"}
-              onChange={(e) => setAccessibilityFlag(e.target.checked ? "deaf" : "none")}
-              className="w-4 h-4 rounded border-white/10 bg-white/5 text-accent-violet focus:ring-0 cursor-pointer"
-            />
-            <span className="font-semibold text-text-dim group-hover:text-text-primary transition-colors">
-              I am Deaf / Hard-of-Hearing (Set Sign Language Priority)
-            </span>
-          </label>
-        </div>
-
-        <button
-          onClick={() => setStep("explanation")}
-          className="w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
-          style={{ background: "linear-gradient(135deg, #7B2FF7, #15CFA0)", color: "#fff", boxShadow: "0 0 30px rgba(123,47,247,0.3)" }}
-        >
-          Next: Learn How We Learn
-          <ArrowRight size={18} />
-        </button>
-      </div>
-    </SlideWrapper>
-  );
-
-  const renderExplanation = () => (
-    <SlideWrapper>
-      <div className="max-w-xl mx-auto text-center space-y-6">
-        <div className="inline-flex items-center gap-2 font-mono text-[11px] font-semibold tracking-[0.12em] text-accent-mint bg-accent-mint/10 border border-accent-mint/30 px-4 py-1.5 rounded-full uppercase">
-          <Sparkles size={12} />
-          Adaptive Engine Basics
-        </div>
-        <h2 className="font-display font-bold text-3xl tracking-tight text-text-primary">
-          We Learn How You Learn
-        </h2>
-        <div className="text-text-dim text-sm leading-relaxed space-y-4 max-w-lg mx-auto text-left font-sans">
-          <p>
-            NeuroPath doesn't just adapt to your wrong answers. Our system observes **micro-interventions**:
-          </p>
-          <ul className="list-disc pl-5 space-y-2">
-            <li><strong className="text-accent-mint">Kinesthetic Gaps:</strong> Monitored via task timing and input calibration.</li>
-            <li><strong className="text-accent-purple">Read & Digest Rates:</strong> Measured through gaze duration ratios and paragraph revisions.</li>
-            <li><strong className="text-accent-pink">Attention Thresholds:</strong> Fired programmatically using idle telemetry tracking.</li>
-          </ul>
-        </div>
-
-        <button
-          onClick={() => setStep("balloon")}
-          className="w-full py-4 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.02]"
-          style={{ background: "linear-gradient(135deg, #7B2FF7, #15CFA0)", color: "#fff", boxShadow: "0 0 30px rgba(123,47,247,0.3)" }}
-        >
-          Start Challenges
-          <ArrowRight size={18} />
-        </button>
-      </div>
-    </SlideWrapper>
-  );
-
-  const renderGenerating = () => (
-    <SlideWrapper>
-      <div className="max-w-xl mx-auto text-center space-y-6 py-8">
-        <div className="relative w-20 h-20 mx-auto">
-          <div className="absolute inset-0 rounded-full border-4 border-white/5" />
-          <div className="absolute inset-0 rounded-full border-4 border-accent-purple border-t-transparent animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Brain className="text-accent-purple animate-pulse" size={28} />
-          </div>
-        </div>
-        <h3 className="font-display font-bold text-xl text-text-primary">Generating Cognitive Profile</h3>
-        <p className="text-xs text-text-dim font-mono animate-pulse">{genStatuses[genStatusIndex]}</p>
-      </div>
-    </SlideWrapper>
-  );
-
-  const renderResult = () => (
-    <SlideWrapper>
-      <div className="max-w-xl mx-auto text-center space-y-6">
-        <motion.div
-          initial={{ scale: 0.7, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 20 }}
-          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-2 bg-accent-mint/10 border border-accent-mint/30 shadow-[0_0_40px_rgba(21,207,160,0.15)]"
-        >
-          <Target size={36} className="text-accent-mint" />
-        </motion.div>
-
-        <div className="font-mono text-[10px] uppercase tracking-widest text-accent-mint font-bold">
-          Calibration Matrix Locked
-        </div>
-        <h2 className="font-display font-bold text-3xl text-text-primary">
-          Your Cognitive Fingerprint
-        </h2>
-
-        {/* Profile Stats */}
-        <div className="grid grid-cols-2 gap-4 text-left">
-          <div className="p-4 rounded-xl border border-white/5 bg-black/30">
-            <div className="flex items-center gap-2 mb-1 opacity-60 text-[10px] font-mono uppercase text-text-faint">
-              <Activity size={12} className="text-accent-purple" /> Cognitive Style
-            </div>
-            <div className="text-base font-semibold text-accent-violetLight">
-              {profile?.cognitiveStyle || "Balanced"}
-            </div>
-          </div>
-          
-          <div className="p-4 rounded-xl border border-white/5 bg-black/30">
-            <div className="flex items-center gap-2 mb-1 opacity-60 text-[10px] font-mono uppercase text-text-faint">
-              <Clock size={12} className="text-accent-amber" /> Processing Rate
-            </div>
-            <div className="text-base font-semibold text-accent-amber">
-              {profile?.processingSpeed || "Average"}
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl border border-white/5 bg-black/30 col-span-2 flex justify-between items-center">
-            <div className="flex items-center gap-2 opacity-60 text-[10px] font-mono uppercase text-text-faint">
-              <Brain size={12} className="text-accent-mint" /> Calibration Integrity
-            </div>
-            <div className={`text-xs font-bold flex items-center gap-1 ${profile?.effort === "Low (Random Guessing)" ? "text-accent-pink" : "text-accent-mint"}`}>
-              {profile?.effort === "Low (Random Guessing)" ? <XCircle size={14} /> : <CheckCircle size={14} />}
-              {profile?.effort}
-            </div>
-          </div>
-        </div>
-
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => navigate("/lessons")}
-          className="w-full py-4.5 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-3 cursor-pointer"
-          style={{ background: "linear-gradient(135deg, #7B2FF7, #15CFA0)", boxShadow: "0 0 32px rgba(21,207,160,0.3)", color: "white" }}
-        >
-          Begin Learning Curriculum
-          <ArrowRight size={18} />
-        </motion.button>
-      </div>
-    </SlideWrapper>
-  );
+  const slide = { initial: { opacity: 0, y: 30 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -20 }, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } };
 
   return (
-    <div className="w-full max-w-5xl mx-auto pt-28 pb-20 px-6 md:px-12 flex flex-col items-center">
-      
-      {/* 6-Step Progress Tracker */}
-      <div className="w-full max-w-2xl mx-auto mb-10 flex items-center justify-between relative px-2">
-        {/* Progress lines */}
-        <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-white/5 -translate-y-1/2 z-0" />
-        <div 
-          className="absolute left-0 top-1/2 h-0.5 bg-gradient-to-r from-accent-purple to-accent-mint -translate-y-1/2 z-0 transition-all duration-500" 
-          style={{ width: `${(getStepIndex(step) / 5) * 100}%` }}
-        />
-        {STEPS.map((s, idx) => {
-          const isActive = idx === getStepIndex(step);
-          const isCompleted = idx < getStepIndex(step);
-          return (
-            <div key={s.id} className="relative z-10 flex flex-col items-center">
-              <div 
-                className={`w-6 h-6 rounded-full flex items-center justify-center font-mono text-[9px] font-bold border transition-all duration-300 ${
-                  isActive 
-                    ? "bg-accent-purple border-accent-purple text-white scale-110 shadow-[0_0_12px_rgba(123,47,247,0.4)]"
-                    : isCompleted
-                      ? "bg-accent-mint border-accent-mint text-black"
-                      : "bg-black border-white/10 text-text-faint"
-                }`}
-              >
-                {isCompleted ? "✓" : idx + 1}
-              </div>
-              <span className={`hidden md:block font-mono text-[9px] uppercase tracking-wider mt-2 transition-colors ${
-                isActive ? "text-accent-purple font-bold" : "text-text-faint"
-              }`}>
-                {s.label}
-              </span>
-            </div>
-          );
-        })}
+    <div className="w-full min-h-screen bg-dark-bg flex flex-col items-center justify-start pt-24 pb-20 px-6 relative overflow-hidden">
+
+      {/* BG */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <motion.div className="absolute -top-48 -left-48 w-[600px] h-[600px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(123,47,247,0.12) 0%, transparent 65%)" }}
+          animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 12, repeat: Infinity }} />
+        <motion.div className="absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(21,207,160,0.1) 0%, transparent 65%)" }}
+          animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 10, repeat: Infinity, delay: 4 }} />
       </div>
 
-      <div className="w-full">
-        <AnimatePresence mode="wait">
-          {step === "welcome" && renderWelcome()}
-          {step === "explanation" && renderExplanation()}
-          {step === "balloon" && <SlideWrapper key="balloon"><BalloonGame onComplete={handleTaskComplete} /></SlideWrapper>}
-          {step === "story" && <SlideWrapper key="story"><StoryQuiz onComplete={handleTaskComplete} /></SlideWrapper>}
-          {step === "generating" && renderGenerating()}
-          {step === "result" && renderResult()}
-        </AnimatePresence>
+      <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
+
+        {/* Logo */}
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-8 flex items-center gap-2.5 cursor-pointer" onClick={() => navigate("/")}>
+          <div className="w-7 h-7 rounded-[8px] bg-gradient-to-br from-accent-pink to-accent-violet flex items-center justify-center shadow-[0_0_16px_rgba(255,29,126,0.4)]">
+            <div className="w-2.5 h-2.5 rounded-full bg-dark-bg" />
+          </div>
+          <span className="font-display font-bold text-base text-text-primary">NeuroPath</span>
+        </motion.div>
+
+        {/* Step dots */}
+        <StepDots current={step} />
+
+        {/* Burst container */}
+        <div className="relative w-full">
+          <Burst trigger={burst} />
+
+          <AnimatePresence mode="wait">
+
+            {/* ═══ WELCOME ═══ */}
+            {step === "welcome" && (
+              <motion.div key="welcome" {...slide} className="text-center">
+                <motion.div animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
+                  className="text-7xl mb-6 inline-block">👋</motion.div>
+
+                <h1 className="font-display font-black text-4xl md:text-5xl text-text-primary mb-4 leading-tight">
+                  Let's build your<br /><span className="gradient-text-shift">brain fingerprint.</span>
+                </h1>
+                <p className="text-text-dim text-base leading-relaxed mb-8 max-w-lg mx-auto">
+                  Two quick challenges. We watch how you play and read — <strong className="text-text-primary">not what you answer</strong>. Your learning profile gets built from your behavior, automatically.
+                </p>
+
+                {/* What we measure */}
+                <div className="grid grid-cols-3 gap-3 mb-8 text-left">
+                  {[
+                    { icon: "⚡", label: "Reflex Speed", desc: "How fast you react to tasks" },
+                    { icon: "📖", label: "Reading Style", desc: "How long you dwell on text" },
+                    { icon: "🎯", label: "Accuracy", desc: "Pattern of correct responses" },
+                  ].map((item, i) => (
+                    <motion.div key={i} initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.1 }}
+                      className="glass-panel rounded-2xl p-4 border border-white/8 text-center">
+                      <div className="text-2xl mb-2">{item.icon}</div>
+                      <div className="font-display font-bold text-sm text-text-primary mb-1">{item.label}</div>
+                      <div className="font-mono text-[9px] text-text-faint">{item.desc}</div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Deaf toggle */}
+                <motion.label initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border cursor-pointer transition-all mb-8 ${deaf ? "border-accent-mint/50 bg-accent-mint/8" : "border-white/8 bg-white/[0.02] hover:border-white/20"}`}>
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-all ${deaf ? "bg-accent-mint/15" : "bg-white/5"}`}>🤟</div>
+                  <div className="flex-1 text-left">
+                    <div className="font-display font-bold text-sm text-text-primary">I'm Deaf or Hard-of-Hearing</div>
+                    <div className="font-mono text-[10px] text-text-faint mt-0.5">Sign language will be set as your primary format</div>
+                  </div>
+                  <div className={`w-12 h-6 rounded-full transition-all relative ${deaf ? "bg-accent-mint" : "bg-white/15"}`}>
+                    <motion.div className="absolute top-1 w-4 h-4 rounded-full bg-white shadow"
+                      animate={{ left: deaf ? "auto" : "4px", right: deaf ? "4px" : "auto" }} />
+                  </div>
+                  <input type="checkbox" checked={deaf} onChange={e => setDeaf(e.target.checked)} className="hidden" />
+                </motion.label>
+
+                <motion.button onClick={() => { fireBurst(); setStep("balloon"); }}
+                  whileHover={{ scale: 1.04, y: -2 }} whileTap={{ scale: 0.97 }}
+                  className="w-full py-5 rounded-2xl font-black text-lg text-white flex items-center justify-center gap-3 shadow-[0_10px_40px_rgba(255,29,126,0.45)] relative overflow-hidden group"
+                  style={{ background: "linear-gradient(135deg, #FF1D7E, #7B2FF7)" }}>
+                  <span className="relative z-10 flex items-center gap-3">
+                    <Zap size={20} /> Start Challenge 1 of 2
+                    <motion.span animate={{ x: [0, 4, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                      <ArrowRight size={18} />
+                    </motion.span>
+                  </span>
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </motion.button>
+              </motion.div>
+            )}
+
+            {/* ═══ BALLOON GAME ═══ */}
+            {step === "balloon" && (
+              <motion.div key="balloon" {...slide} className="w-full">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center gap-2 font-mono text-[10px] font-bold tracking-widest text-accent-violet bg-accent-violet/10 border border-accent-violet/25 px-4 py-1.5 rounded-full uppercase mb-3">
+                    <Zap size={10} /> Challenge 1 — Kinesthetic Reflex Test
+                  </div>
+                  <h2 className="font-display font-black text-3xl text-text-primary mb-2">Pop every balloon.</h2>
+                  <p className="text-text-dim text-sm">Your speed and accuracy reveal how your hands-on learning system works. Click fast — they fall!</p>
+                </div>
+                <BalloonGame onComplete={handleTaskComplete} />
+              </motion.div>
+            )}
+
+            {/* ═══ STORY QUIZ ═══ */}
+            {step === "story" && (
+              <motion.div key="story" {...slide} className="w-full">
+                <div className="text-center mb-6">
+                  <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}
+                    className="inline-flex items-center gap-2 font-mono text-[10px] font-bold tracking-widest text-accent-amber bg-accent-amber/10 border border-accent-amber/25 px-4 py-1.5 rounded-full uppercase mb-3">
+                    🎉 Challenge 1 done! Now — Challenge 2 — Reading Comprehension
+                  </motion.div>
+                  <h2 className="font-display font-black text-3xl text-text-primary mb-2">Read the story. Answer once.</h2>
+                  <p className="text-text-dim text-sm">We measure how you process narrative information. Take your time — we're watching speed, not just the answer.</p>
+                </div>
+                <StoryQuiz onComplete={handleTaskComplete} />
+              </motion.div>
+            )}
+
+            {/* ═══ GENERATING ═══ */}
+            {step === "generating" && (
+              <motion.div key="generating" {...slide} className="text-center py-12">
+                <div className="relative w-28 h-28 mx-auto mb-8">
+                  <motion.div className="absolute inset-0 rounded-full border-4 border-accent-pink/20"
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }} transition={{ duration: 2, repeat: Infinity }} />
+                  <motion.div className="absolute inset-0 rounded-full border-4 border-accent-violet border-t-transparent"
+                    animate={{ rotate: 360 }} transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }} />
+                  <motion.div className="absolute inset-2 rounded-full border-2 border-accent-mint border-b-transparent"
+                    animate={{ rotate: -360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                      <Brain className="text-accent-pink" size={32} />
+                    </motion.div>
+                  </div>
+                </div>
+
+                <h3 className="font-display font-black text-3xl text-text-primary mb-3">Building your fingerprint</h3>
+                <motion.p key={genLine} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="font-mono text-sm text-accent-violet">
+                  {GEN_LINES[genLine]}
+                </motion.p>
+
+                <div className="flex justify-center gap-1.5 mt-8">
+                  {[0, 1, 2].map(i => (
+                    <motion.div key={i} className="w-2 h-2 rounded-full bg-accent-pink"
+                      animate={{ scale: [1, 1.8, 1], opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.3 }} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ═══ RESULT ═══ */}
+            {step === "result" && profile && (
+              <motion.div key="result" {...slide} className="text-center">
+                {/* Big result reveal */}
+                <motion.div initial={{ scale: 0, rotate: -180 }} animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.1 }}
+                  className="relative w-32 h-32 mx-auto mb-6">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-accent-pink to-accent-violet shadow-[0_0_60px_rgba(255,29,126,0.5)] flex items-center justify-center text-5xl">
+                    {profile.primary === "sign" ? "🤟" : profile.primary === "visual" ? "👁️" : profile.primary === "narrative" ? "📖" : "🧪"}
+                  </div>
+                  <motion.div className="absolute -inset-3 rounded-full border-2 border-accent-pink/30"
+                    animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} />
+                </motion.div>
+
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                  <div className="font-mono text-[10px] text-text-faint uppercase tracking-[0.2em] mb-2">Cognitive fingerprint locked</div>
+                  <h2 className="font-display font-black text-4xl md:text-5xl text-text-primary mb-1 capitalize">
+                    {profile.primary} Learner
+                  </h2>
+                  <div className="font-mono text-sm text-accent-pinkLight mb-8">{profile.confidence || 75}% confidence</div>
+                </motion.div>
+
+                {/* Stats */}
+                <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+                  className="grid grid-cols-3 gap-3 mb-8">
+                  {[
+                    { label: "Cognitive Style", value: profile.cognitiveStyle || "Analytical", color: "text-accent-violetLight" },
+                    { label: "Processing", value: profile.processingSpeed || "Average", color: "text-accent-amber" },
+                    { label: "Effort", value: profile.effort === "Low (Random Guessing)" ? "⚠ Low" : profile.effort || "High", color: profile.effort?.includes("Low") ? "text-accent-pink" : "text-accent-mint" },
+                  ].map((s, i) => (
+                    <motion.div key={i} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5 + i * 0.1 }}
+                      className="glass-panel rounded-2xl p-4 border border-white/8">
+                      <div className="font-mono text-[9px] text-text-faint uppercase tracking-wider mb-1">{s.label}</div>
+                      <div className={`font-display font-bold text-sm ${s.color}`}>{s.value}</div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+
+                {/* Modality bars */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
+                  className="glass-panel rounded-2xl border border-white/8 p-5 mb-8 text-left">
+                  <div className="font-mono text-[9px] text-text-faint uppercase tracking-wider mb-4">Full modality breakdown</div>
+                  {[
+                    { key: "visual", label: "Visual", color: "#FF1D7E" },
+                    { key: "narrative", label: "Narrative", color: "#FFB347" },
+                    { key: "kinesthetic", label: "Kinesthetic", color: "#7B2FF7" },
+                    { key: "sign", label: "Sign Language", color: "#15CFA0" },
+                  ].map((m, i) => {
+                    const val = profile.breakdown?.[m.key] || 0;
+                    return (
+                      <div key={m.key} className="mb-3">
+                        <div className="flex justify-between font-mono text-[10px] mb-1">
+                          <span className="text-text-dim">{m.label}</span>
+                          <span className="font-bold" style={{ color: m.color }}>{val}%</span>
+                        </div>
+                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                          <motion.div className="h-full rounded-full" style={{ backgroundColor: m.color, boxShadow: `0 0 8px ${m.color}60` }}
+                            initial={{ width: 0 }} animate={{ width: `${val}%` }}
+                            transition={{ duration: 0.8, delay: 0.8 + i * 0.1, ease: "easeOut" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+
+                <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }}
+                  onClick={() => navigate("/lessons")}
+                  whileHover={{ scale: 1.04, y: -3 }} whileTap={{ scale: 0.97 }}
+                  className="w-full py-5 rounded-2xl font-black text-xl text-white flex items-center justify-center gap-3 shadow-[0_12px_50px_rgba(21,207,160,0.4)] relative overflow-hidden group"
+                  style={{ background: "linear-gradient(135deg, #7B2FF7, #15CFA0)" }}>
+                  <span className="relative z-10 flex items-center gap-3">
+                    <Sparkles size={22} /> Start Learning — Adapted to You
+                    <motion.span animate={{ x: [0, 5, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                      <ArrowRight size={20} />
+                    </motion.span>
+                  </span>
+                  <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </motion.button>
+              </motion.div>
+            )}
+
+          </AnimatePresence>
+        </div>
       </div>
     </div>
   );
