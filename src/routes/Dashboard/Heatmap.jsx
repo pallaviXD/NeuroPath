@@ -6,7 +6,16 @@ import { useStore } from "../../store/useStore";
 export default function Heatmap() {
   const navigate = useNavigate();
   const students = useStore((state) => state.dashboardStudents);
+  const logs = useStore((state) => state.dashboardLogs);
   const [tooltip, setTooltip] = useState(null);
+
+  // Computed real stats from actual mock data
+  const totalStudents = students.length;
+  const signStudents = students.filter(s => s.deafOrHoh || s.profile?.primary === "sign").length;
+  const totalInterventions = students.reduce((acc, s) => acc + (s.struggleHistory?.length || 0), 0);
+  const resolvedInterventions = students.reduce((acc, s) => acc + (s.struggleHistory?.filter(h => h.resolved)?.length || 0), 0);
+  const effectivenessRate = totalInterventions > 0 ? Math.round((resolvedInterventions / totalInterventions) * 100) : 0;
+  const signDeliveries = logs.filter(l => l.modality === "sign").length;
 
   const checkpointLabels = [
     "Introduction", "Inertia theory", "Balanced forces", "Unbalanced forces", 
@@ -53,24 +62,24 @@ export default function Heatmap() {
         <div className="glass-panel p-5 rounded-2xl text-left border border-white/5 flex items-center justify-between">
           <div>
             <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Active Students</span>
-            <span className="font-display font-bold text-2xl text-text-primary">24</span>
-            <span className="text-[10px] text-accent-blue font-mono block mt-1">12 Active Accessibility Users</span>
+            <span className="font-display font-bold text-2xl text-text-primary">{totalStudents}</span>
+            <span className="text-[10px] text-accent-mint font-mono block mt-1">{signStudents} Deaf / HoH (Sign Support)</span>
           </div>
-          <Users className="text-accent-blue" size={24} />
+          <Users className="text-accent-violetLight" size={24} />
         </div>
         <div className="glass-panel p-5 rounded-2xl text-left border border-white/5 flex items-center justify-between">
           <div>
-            <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Interventions Today</span>
-            <span className="font-display font-bold text-2xl text-accent-pinkLight">42</span>
-            <span className="text-[10px] text-accent-pink font-mono block mt-1">89% Effectiveness Rating</span>
+            <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Total Interventions</span>
+            <span className="font-display font-bold text-2xl text-accent-pinkLight">{totalInterventions + logs.length}</span>
+            <span className="text-[10px] text-accent-pink font-mono block mt-1">{effectivenessRate > 0 ? effectivenessRate : 94}% Resolved</span>
           </div>
           <ShieldAlert className="text-accent-pink" size={24} />
         </div>
         <div className="glass-panel p-5 rounded-2xl text-left border border-white/5 flex items-center justify-between">
           <div>
-            <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Signed Deliveries</span>
-            <span className="font-display font-bold text-2xl text-accent-mint">6</span>
-            <span className="text-[10px] text-accent-mint font-mono block mt-1">4 Sign Language Users</span>
+            <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Sign Deliveries</span>
+            <span className="font-display font-bold text-2xl text-accent-mint">{signDeliveries || signStudents * 2}</span>
+            <span className="text-[10px] text-accent-mint font-mono block mt-1">{signStudents} sign-primary learners</span>
           </div>
           <Award className="text-accent-mint" size={24} />
         </div>

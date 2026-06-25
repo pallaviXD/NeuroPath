@@ -17,7 +17,7 @@ export default function Navigation() {
 
   const navItems = [
     { label: "Home", path: "/" },
-    { label: "Onboarding", path: "/onboarding" },
+    { label: "Lessons", path: "/lessons" },
     { label: "Demo", path: "/demo" },
     { label: "Dashboard", path: "/dashboard" },
   ];
@@ -33,13 +33,17 @@ export default function Navigation() {
     if (user) {
       if (user.role === "teacher" || user.role === "admin") return "Dashboard";
       if (user.role === "parent") return "My Portal";
-      return studentProfile.primary ? "Continue Lesson" : "Start Learning";
+      return studentProfile.primary ? "My Lessons" : "Get Profile";
     }
     return "Get Started";
   };
 
   const getCTAPath = () => {
-    if (user) return getDashboardPath();
+    if (user) {
+      if (user.role === "teacher" || user.role === "admin") return "/dashboard";
+      if (user.role === "parent") return "/parent";
+      return studentProfile.primary ? "/lessons" : "/onboarding";
+    }
     return "/signup";
   };
 

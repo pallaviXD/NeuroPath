@@ -258,5 +258,55 @@ export default function MoleculeBuilder({ lessonId, onChangeDepth }) {
     );
   }
 
-  return null;
+  // Generic variable simulator — works for any AI-generated lesson
+  const [varA, setVarA] = useState(50);
+  const [varB, setVarB] = useState(50);
+  const output = Math.round((varA * 0.6 + varB * 0.4) * 0.85);
+
+  // Generic fallback for any lesson not explicitly handled
+  return (
+    <div className="w-full flex flex-col items-center bg-dark-card border border-white/5 rounded-2xl p-5 text-left">
+      <h4 className="font-display font-semibold text-sm text-text-primary mb-1 w-full">Interactive Variable Explorer</h4>
+      <p className="text-text-faint text-xs font-mono mb-5 w-full">Adjust the inputs and observe how the output metric responds.</p>
+
+      <div className="w-full p-4 bg-dark-bg/40 border border-white/5 rounded-xl flex flex-col items-center justify-center mb-5">
+        <span className="font-mono text-[10px] text-text-faint uppercase mb-1">Computed Output</span>
+        <div className="font-display font-bold text-3xl text-accent-violet">
+          {output}<span className="text-xs font-mono text-text-dim font-normal ml-1">units</span>
+        </div>
+        <div className="w-full h-2 bg-white/10 rounded-full mt-3 overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-accent-violet to-accent-mint transition-all duration-300"
+            style={{ width: `${output}%` }} />
+        </div>
+      </div>
+
+      <div className="space-y-4 w-full">
+        <div>
+          <div className="flex justify-between items-center text-xs mb-1.5 font-mono">
+            <span className="text-text-dim">Input Variable A:</span>
+            <span className="text-accent-violetLight font-semibold">{varA}%</span>
+          </div>
+          <input type="range" min="0" max="100" value={varA}
+            onChange={(e) => { setVarA(parseInt(e.target.value)); if(onChangeDepth) onChangeDepth(Math.abs(varA-varB)/100); }}
+            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-violet" />
+        </div>
+        <div>
+          <div className="flex justify-between items-center text-xs mb-1.5 font-mono">
+            <span className="text-text-dim">Input Variable B:</span>
+            <span className="text-accent-mint font-semibold">{varB}%</span>
+          </div>
+          <input type="range" min="0" max="100" value={varB}
+            onChange={(e) => { setVarB(parseInt(e.target.value)); if(onChangeDepth) onChangeDepth(Math.abs(varA-varB)/100); }}
+            className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-accent-mint" />
+        </div>
+      </div>
+
+      <div className="mt-4 pt-3 border-t border-white/5 flex justify-between items-center w-full font-mono text-[11px]">
+        <span className="text-text-faint">Relationship:</span>
+        <span className={`font-bold ${varA > varB ? "text-accent-violet" : "text-accent-mint"}`}>
+          {varA === varB ? "Balanced" : varA > varB ? "A dominates" : "B dominates"}
+        </span>
+      </div>
+    </div>
+  );
 }

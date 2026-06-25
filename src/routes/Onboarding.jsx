@@ -238,7 +238,7 @@ export default function Onboarding() {
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
-          onClick={() => navigate("/demo")}
+          onClick={() => navigate("/lessons")}
           className="w-full py-4.5 rounded-2xl font-bold text-[15px] flex items-center justify-center gap-3 cursor-pointer"
           style={{ background: "linear-gradient(135deg, #7B2FF7, #15CFA0)", boxShadow: "0 0 32px rgba(21,207,160,0.3)", color: "white" }}
         >
