@@ -15,23 +15,35 @@ export default function Navigation() {
   const studentProfile = useStore((state) => state.studentProfile);
   const { user, logout } = useAuthStore();
 
-  const navItems = [
-    { label: "Home", path: "/" },
-    { label: "Lessons", path: "/lessons" },
-    { label: "PDF Lesson", path: "/instant" },
-    { label: "Dashboard", path: "/dashboard" },
-  ];
+  const navItems = user?.role === "teacher" || user?.role === "admin"
+    ? [
+        { label: "Home", path: "/" },
+        { label: "Dashboard", path: "/dashboard" },
+        { label: "Lessons", path: "/lessons" },
+        { label: "PDF Upload", path: "/dashboard/content" },
+      ]
+    : user?.role === "parent"
+    ? [
+        { label: "Home", path: "/" },
+        { label: "My Portal", path: "/parent" },
+      ]
+    : [
+        { label: "Home", path: "/" },
+        { label: "Lessons", path: "/lessons" },
+        { label: "PDF Lesson", path: "/instant" },
+        { label: "My Progress", path: "/student-dashboard" },
+      ];
 
   const getDashboardPath = () => {
     if (!user) return "/login";
     if (user.role === "teacher" || user.role === "admin") return "/dashboard";
     if (user.role === "parent") return "/parent";
-    return "/onboarding";
+    return "/student-dashboard";
   };
 
   const getCTALabel = () => {
     if (user) {
-      if (user.role === "teacher" || user.role === "admin") return "Dashboard";
+      if (user.role === "teacher" || user.role === "admin") return "Teacher Dashboard";
       if (user.role === "parent") return "My Portal";
       return studentProfile.primary ? "My Lessons" : "Get Profile";
     }

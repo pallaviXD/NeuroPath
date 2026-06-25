@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Brain, Zap, Eye, Hand, BookOpen, CheckCircle, XCircle, Sparkles, Volume2 } from "lucide-react";
 import { useStore } from "../store/useStore";
+import { useAuthStore } from "../store/useAuthStore";
 import BalloonGame from "../components/BalloonGame";
 import StoryQuiz from "../components/StoryQuiz";
+import { analyzeStudentCapacity } from "../lib/neuropath-agent";
 
 /* ── Particle burst on step complete ── */
 function Burst({ trigger }) {
@@ -103,12 +105,34 @@ export default function Onboarding() {
   useEffect(() => {
     if (step !== "generating") return;
     let i = 0;
-    const iv = setInterval(() => {
+    const iv = setInterval(async () => {
       i++;
       if (i < GEN_LINES.length) { setGenLine(i); }
       else {
         clearInterval(iv);
-        const p = computeCognitiveBaseline({ quizResults: results, accessibilityFlag: deaf ? "deaf" : "none" });
+        // Analyze capacity from balloon game results
+        const balloonResult = results.find(r => r.modality === "kinesthetic");
+        const storyResult   = results.find(r => r.modality === "narrative");
+        let capacityAnalysis = { capacityLevel: "medium", difficultyLabel: "Standard", recommendation: "" };
+        if (balloonResult) {
+          capacityAnalysis = await analyzeStudentCapacity({
+            accuracy:          balloonResult.accuracy || 0.5,
+            avgReactionTimeMs: balloonResult.avgReactionTimeMs || 800,
+            score:             balloonResult.score || 0,
+            totalSpawned:      balloonResult.totalSpawned || 1,
+            storyQuizAccuracy: storyResult?.accuracy || 1.0,
+            deafOrHoh:         deaf,
+          });
+        }
+        const p = computeCognitiveBaseline({
+          quizResults:       results,
+          accessibilityFlag: deaf ? "deaf" : "none",
+        });
+        // Merge capacity into profile
+        p.capacityLevel    = capacityAnalysis.capacityLevel;
+        p.difficultyLabel  = capacityAnalysis.difficultyLabel;
+        p.capacityNote     = capacityAnalysis.recommendation;
+        p.signRecommended  = capacityAnalysis.signLanguageRecommended || deaf;
         setProfile(p);
         setTimeout(() => { fireBurst(); setStep("result"); }, 400);
       }
@@ -299,7 +323,7 @@ export default function Onboarding() {
                   {[
                     { label: "Cognitive Style", value: profile.cognitiveStyle || "Analytical", color: "text-accent-violetLight" },
                     { label: "Processing", value: profile.processingSpeed || "Average", color: "text-accent-amber" },
-                    { label: "Effort", value: profile.effort === "Low (Random Guessing)" ? "⚠ Low" : profile.effort || "High", color: profile.effort?.includes("Low") ? "text-accent-pink" : "text-accent-mint" },
+                    { label: "Capacity Level", value: profile.difficultyLabel || "Standard", color: profile.capacityLevel === "high" ? "text-accent-mint" : profile.capacityLevel === "low" ? "text-accent-pink" : "text-accent-amber" },
                   ].map((s, i) => (
                     <motion.div key={i} initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.5 + i * 0.1 }}
                       className="glass-panel rounded-2xl p-4 border border-white/8">
@@ -308,6 +332,15 @@ export default function Onboarding() {
                     </motion.div>
                   ))}
                 </motion.div>
+
+                {/* Capacity recommendation */}
+                {profile.capacityNote && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+                    className="glass-panel rounded-2xl border border-accent-violet/20 bg-accent-violet/5 p-4 text-left">
+                    <div className="font-mono text-[9px] text-accent-violetLight uppercase tracking-wider mb-1.5">AI teaching recommendation</div>
+                    <p className="text-text-dim text-xs leading-relaxed">{profile.capacityNote}</p>
+                  </motion.div>
+                )}
 
                 {/* Modality bars */}
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}

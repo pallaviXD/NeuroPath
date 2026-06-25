@@ -55,7 +55,7 @@ export default function Login() {
       const user = await login(email.trim(), password, role);
       if (user.role === "teacher" || user.role === "admin") navigate("/dashboard");
       else if (user.role === "parent") navigate("/parent");
-      else navigate("/onboarding");
+      else navigate("/student-dashboard");
     } catch {
       setLocalErr("Invalid credentials. Try any email + password.");
     }

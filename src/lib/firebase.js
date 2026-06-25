@@ -1,115 +1,155 @@
-// Firebase integration layer with LocalStorage fallback
+// Firebase integration layer — real Firebase when configured, localStorage fallback otherwise
 import { mockStudents } from "../data/mockClassData";
 
-// Retrieve configuration from environment variables if present
+// ─── Real Firebase (lazy-loaded only when keys present) ────────────────────
+let _auth = null;
+let _db = null;
+let _firebaseApp = null;
+
 const firebaseConfig = {
-  apiKey: import.meta.env?.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env?.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET,
+  apiKey:            import.meta.env?.VITE_FIREBASE_API_KEY,
+  authDomain:        import.meta.env?.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId:         import.meta.env?.VITE_FIREBASE_PROJECT_ID,
+  storageBucket:     import.meta.env?.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env?.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env?.VITE_FIREBASE_APP_ID
+  appId:             import.meta.env?.VITE_FIREBASE_APP_ID,
 };
 
-const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+export const isFirebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
 
-// For this high-fidelity prototype, we'll initialize the LocalStorage store if it's empty
-const STORAGE_KEY_PROFILE = "neuropath_student_profile";
+async function getFirebase() {
+  if (!isFirebaseConfigured) return { auth: null, db: null };
+  if (_auth && _db) return { auth: _auth, db: _db };
+  const { initializeApp, getApps } = await import("firebase/app");
+  const { getAuth } = await import("firebase/auth");
+  const { getFirestore } = await import("firebase/firestore");
+  if (!getApps().length) _firebaseApp = initializeApp(firebaseConfig);
+  _auth = getAuth(_firebaseApp);
+  _db   = getFirestore(_firebaseApp);
+  return { auth: _auth, db: _db };
+}
+
+// ─── Auth helpers ──────────────────────────────────────────────────────────
+export async function firebaseSignUp(name, email, password, role) {
+  const { auth, db } = await getFirebase();
+  if (!auth) throw new Error("Firebase not configured");
+  const { createUserWithEmailAndPassword, updateProfile } = await import("firebase/auth");
+  const { doc, setDoc } = await import("firebase/firestore");
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  await updateProfile(cred.user, { displayName: name });
+  await setDoc(doc(db, "users", cred.user.uid), {
+    name, email, role,
+    createdAt: new Date().toISOString(),
+    studentProfile: null,
+  });
+  return { id: cred.user.uid, name, email, role };
+}
+
+export async function firebaseSignIn(email, password) {
+  const { auth, db } = await getFirebase();
+  if (!auth) throw new Error("Firebase not configured");
+  const { signInWithEmailAndPassword } = await import("firebase/auth");
+  const { doc, getDoc } = await import("firebase/firestore");
+  const cred = await signInWithEmailAndPassword(auth, email, password);
+  const snap = await getDoc(doc(db, "users", cred.user.uid));
+  const data = snap.exists() ? snap.data() : {};
+  return {
+    id: cred.user.uid,
+    name: cred.user.displayName || data.name || email.split("@")[0],
+    email,
+    role: data.role || "student",
+  };
+}
+
+export async function firebaseSignOut() {
+  const { auth } = await getFirebase();
+  if (!auth) return;
+  const { signOut } = await import("firebase/auth");
+  await signOut(auth);
+}
+
+export async function firebaseSaveProfile(userId, profile) {
+  const { db } = await getFirebase();
+  if (!db) return;
+  const { doc, setDoc, serverTimestamp } = await import("firebase/firestore");
+  await setDoc(doc(db, "users", userId, "profile", "cognitive"), {
+    ...profile, updatedAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function firebaseGetProfile(userId) {
+  const { db } = await getFirebase();
+  if (!db) return null;
+  const { doc, getDoc } = await import("firebase/firestore");
+  const snap = await getDoc(doc(db, "users", userId, "profile", "cognitive"));
+  return snap.exists() ? snap.data() : null;
+}
+
+// ─── LocalStorage keys ─────────────────────────────────────────────────────
+const STORAGE_KEY_PROFILE  = "neuropath_student_profile";
 const STORAGE_KEY_STUDENTS = "neuropath_students_db";
-const STORAGE_KEY_LOGS = "neuropath_intervention_logs";
+const STORAGE_KEY_LOGS     = "neuropath_intervention_logs";
 
 if (!localStorage.getItem(STORAGE_KEY_STUDENTS)) {
   localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(mockStudents));
 }
 
+// ─── dbService (localStorage — always available as fallback) ──────────────
 export const dbService = {
   isRealFirebase: isFirebaseConfigured,
 
-  // Student Profile Storage
   saveStudentProfile: async (profile) => {
     localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
-    
-    // Also sync back to our mock class db if we are Student A/B or current user
-    const currentStudents = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENTS)) || mockStudents;
-    const userIndex = currentStudents.findIndex(s => s.id === "current_user");
-    
-    const studentRecord = {
-      id: "current_user",
-      name: "Current Student (You)",
-      profile: {
-        primary: profile.primary,
-        confidence: profile.confidence,
-        breakdown: profile.breakdown
-      },
+    const students = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENTS)) || mockStudents;
+    const idx = students.findIndex(s => s.id === "current_user");
+    const record = {
+      id: "current_user", name: "Current Student (You)",
+      profile: { primary: profile.primary, confidence: profile.confidence, breakdown: profile.breakdown },
       deafOrHoh: profile.deafOrHoh || false,
+      capacityLevel: profile.capacityLevel || "medium",
       sessions: profile.sessions || [],
       struggleHistory: profile.struggleHistory || [],
-      checkpoints: profile.checkpoints || [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      checkpoints: profile.checkpoints || [0,0,0,0,0,0,0,0,0,0,0,0],
     };
-
-    if (userIndex > -1) {
-      currentStudents[userIndex] = studentRecord;
-    } else {
-      currentStudents.push(studentRecord);
-    }
-    
-    localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
-    return studentRecord;
+    if (idx > -1) students[idx] = record; else students.push(record);
+    localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students));
+    return record;
   },
 
   getStudentProfile: () => {
-    const data = localStorage.getItem(STORAGE_KEY_PROFILE);
-    return data ? JSON.parse(data) : null;
+    const d = localStorage.getItem(STORAGE_KEY_PROFILE);
+    return d ? JSON.parse(d) : null;
   },
 
-  // Save session telemetry
   saveSession: async (session) => {
-    const profile = dbService.getStudentProfile() || {
-      primary: "visual",
-      confidence: 50,
-      breakdown: { visual: 50, narrative: 50, kinesthetic: 50, sign: 50 },
-      sessions: []
-    };
-    
+    const profile = dbService.getStudentProfile() || { sessions: [] };
     if (!profile.sessions) profile.sessions = [];
     profile.sessions.push(session);
-    
     await dbService.saveStudentProfile(profile);
     return session;
   },
 
-  // Retrieve all students (for Teacher Dashboard)
   getStudents: () => {
-    const data = localStorage.getItem(STORAGE_KEY_STUDENTS);
-    return data ? JSON.parse(data) : mockStudents;
+    const d = localStorage.getItem(STORAGE_KEY_STUDENTS);
+    return d ? JSON.parse(d) : mockStudents;
   },
 
-  // Update a single student record in the dashboard DB
   updateStudent: (student) => {
-    const currentStudents = dbService.getStudents();
-    const index = currentStudents.findIndex(s => s.id === student.id);
-    if (index > -1) {
-      currentStudents[index] = student;
-      localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(currentStudents));
-    }
+    const students = dbService.getStudents();
+    const i = students.findIndex(s => s.id === student.id);
+    if (i > -1) { students[i] = student; localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students)); }
   },
 
-  // Track live interventions
-  logIntervention: (logEntry) => {
-    const existingLogsStr = localStorage.getItem(STORAGE_KEY_LOGS);
-    const logs = existingLogsStr ? JSON.parse(existingLogsStr) : [];
-    const newLog = {
-      id: "log_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9),
-      ...logEntry,
-      time: "now"
-    };
+  logIntervention: (entry) => {
+    const logs = JSON.parse(localStorage.getItem(STORAGE_KEY_LOGS) || "[]");
+    const newLog = { id: "log_" + Date.now() + "_" + Math.random().toString(36).substr(2,9), ...entry, time: "now" };
     logs.unshift(newLog);
-    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs.slice(0, 50))); // Keep last 50 logs
+    localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(logs.slice(0, 50)));
     return newLog;
   },
 
   getInterventionLogs: () => {
-    const data = localStorage.getItem(STORAGE_KEY_LOGS);
-    return data ? JSON.parse(data) : [];
-  }
+    const d = localStorage.getItem(STORAGE_KEY_LOGS);
+    return d ? JSON.parse(d) : [];
+  },
 };

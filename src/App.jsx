@@ -9,6 +9,7 @@ import Onboarding from "./routes/Onboarding";
 import Lessons from "./routes/Lessons";
 import Lesson from "./routes/Lesson";
 import InstantLesson from "./routes/InstantLesson";
+import StudentDashboard from "./routes/StudentDashboard";
 import Demo from "./routes/Demo";
 import ParentPortal from "./routes/ParentPortal";
 import DashboardLayout from "./routes/Dashboard/DashboardLayout";
@@ -36,6 +37,7 @@ function AppShell() {
           <Route path="/lessons" element={<Lessons />} />
           <Route path="/instant" element={<InstantLesson />} />
           <Route path="/lesson/:lessonId" element={<Lesson />} />
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
           <Route path="/demo" element={<Demo />} />
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Heatmap />} />

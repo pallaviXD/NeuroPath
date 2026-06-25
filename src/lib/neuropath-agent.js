@@ -675,3 +675,104 @@ ${foundation.originalText}
   return result || { content: foundation.description || foundation.originalText };
 }
 
+
+/**
+ * Analyze balloon game score + reaction time to determine student capacity level.
+ * Returns: { capacityLevel, difficultyLabel, recommendation, signLanguageRecommended }
+ */
+export async function analyzeStudentCapacity({
+  accuracy,          // 0.0 – 1.0
+  avgReactionTimeMs, // milliseconds
+  score,
+  totalSpawned,
+  storyQuizAccuracy = 1.0,
+  deafOrHoh = false,
+}) {
+  // Deterministic fallback — works without API key
+  const fallback = () => {
+    let capacityLevel = "medium";
+    let difficultyLabel = "Standard";
+    let recommendation = "Mixed visual and narrative content with moderate complexity.";
+
+    if (accuracy >= 0.75 && avgReactionTimeMs < 650) {
+      capacityLevel = "high";
+      difficultyLabel = "Advanced";
+      recommendation = "Challenge this student with deeper concepts, edge cases, and extension activities. Use analytical breakdowns and technical diagrams.";
+    } else if (accuracy < 0.35 || avgReactionTimeMs > 1400) {
+      capacityLevel = "low";
+      difficultyLabel = "Simplified";
+      recommendation = "Use clear, simple analogies. Short sentences. Lots of visual support. Avoid jargon. Sign language delivery is strongly recommended.";
+    } else {
+      recommendation = "Balanced approach — start with a story analogy, confirm understanding with a simple visual, then offer the interactive version.";
+    }
+
+    return {
+      capacityLevel,
+      difficultyLabel,
+      recommendation,
+      signLanguageRecommended: deafOrHoh || capacityLevel === "low",
+      source: "fallback",
+    };
+  };
+
+  if (!getClient()) return fallback();
+
+  try {
+    const result = await generateJson(
+      `You are NeuroPath's AI capacity analyst. Based on a student's game performance, determine their learning capacity level and recommend an appropriate teaching approach.
+
+GAME PERFORMANCE DATA:
+- Accuracy: ${Math.round(accuracy * 100)}% (balloons popped / balloons spawned)
+- Average reaction time: ${avgReactionTimeMs}ms
+- Total score: ${score} / ${totalSpawned}
+- Story quiz accuracy: ${Math.round(storyQuizAccuracy * 100)}%
+- Deaf / Hard-of-Hearing: ${deafOrHoh}
+
+CAPACITY LEVELS:
+- "high": Accuracy > 70% AND reaction time < 700ms — student processes fast, can handle complexity
+- "medium": 35-70% accuracy OR 700-1300ms reaction — standard pacing works
+- "low": Accuracy < 35% OR reaction time > 1300ms — needs simplified delivery, shorter explanations
+
+Your response must be concise and actionable for an AI tutor.`,
+      `{
+  "capacityLevel": "high|medium|low",
+  "difficultyLabel": "string (e.g. 'Advanced', 'Standard', 'Simplified')",
+  "recommendation": "string (2-3 sentences on HOW to teach this student)",
+  "signLanguageRecommended": true/false
+}`
+    );
+
+    return { ...result, source: "gemini" };
+  } catch {
+    return fallback();
+  }
+}
+
+/**
+ * Generate a lesson explanation ADAPTED to student capacity level.
+ * Used in lesson player when capacity profile is known.
+ */
+export async function generateCapacityAdaptedExplanation(foundation, capacityLevel) {
+  const complexityMap = {
+    high: "Use advanced vocabulary, include edge cases, provide mathematical reasoning where applicable, mention real-world exceptions.",
+    medium: "Use clear language with some technical terms. Provide one main example. Keep it focused.",
+    low: "Use extremely simple language. Short sentences only. Use everyday analogies a 10-year-old would understand. Avoid all jargon.",
+  };
+
+  const instruction = complexityMap[capacityLevel] || complexityMap.medium;
+  const source = (foundation.originalText || foundation.description || "").slice(0, 2000);
+
+  const result = await generateJson(
+    `You are NeuroPath's adaptive tutor. Rewrite this educational content for a student with ${capacityLevel} learning capacity.
+
+INSTRUCTION: ${instruction}
+
+CONTENT:
+"""
+${source}
+"""`,
+    `{ "content": "string", "title": "string" }`
+  );
+
+  return result || { content: foundation.description || source, title: foundation.title };
+}
