@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Settings, Eye, Hand, Contrast, Type, Zap, X } from "lucide-react";
 import { useAccessibilityStore, ACCESSIBILITY_MODES, FONT_SIZES } from "../../store/useAccessibilityStore";
@@ -18,16 +19,16 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] flex justify-center items-start overflow-y-auto p-4 md:p-6">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-0"
         />
 
         {/* Modal Panel */}
@@ -36,7 +37,7 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 10 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg glass-panel rounded-3xl border border-white/10 p-6 md:p-8 bg-dark-bg/95 shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10 overflow-hidden"
+          className="relative my-auto w-full max-w-lg glass-panel rounded-3xl border border-white/10 p-6 md:p-8 bg-dark-bg/95 shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10 overflow-hidden"
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/5">
@@ -146,8 +147,8 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
               </div>
             </div>
 
-            {/* 3. Reduced Motion & Settings Reset */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            {/* 3. Reduced Motion, Settings Reset & Close */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <button
                 onClick={() => setReducedMotion(!reducedMotion)}
                 className={`p-3.5 rounded-xl border-2 text-left transition-all flex items-center justify-between cursor-pointer ${
@@ -156,11 +157,11 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
                     : "border-white/5 bg-white/[0.02] text-text-dim hover:border-white/10"
                 }`}
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Zap size={14} />
                   <span className="text-xs font-semibold">Reduced Motion</span>
                 </div>
-                <div className={`w-8 h-4.5 rounded-full p-0.5 transition-all ${reducedMotion ? "bg-accent-violet" : "bg-white/10"}`}>
+                <div className={`w-8 h-4.5 rounded-full p-0.5 transition-all flex-shrink-0 ${reducedMotion ? "bg-accent-violet" : "bg-white/10"}`}>
                   <div className={`w-3.5 h-3.5 rounded-full bg-white transition-all ${reducedMotion ? "translate-x-3.5" : ""}`} />
                 </div>
               </button>
@@ -170,6 +171,13 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
                 className="p-3.5 rounded-xl border border-white/10 hover:border-white/20 bg-white/5 text-text-dim hover:text-text-primary text-xs font-mono uppercase tracking-wider text-center cursor-pointer transition-colors"
               >
                 Reset Defaults
+              </button>
+
+              <button
+                onClick={onClose}
+                className="p-3.5 rounded-xl border border-accent-pink/30 hover:border-accent-pink/50 bg-accent-pink/10 text-accent-pinkLight hover:bg-accent-pink/20 text-xs font-bold uppercase tracking-wider text-center cursor-pointer transition-all"
+              >
+                Close Settings
               </button>
             </div>
 
@@ -188,6 +196,7 @@ export default function AccessibilityCenter({ isOpen, onClose }) {
           </div>
         </motion.div>
       </div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

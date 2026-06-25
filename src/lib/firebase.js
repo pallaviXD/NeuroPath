@@ -102,8 +102,25 @@ export const dbService = {
     localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
     const students = JSON.parse(localStorage.getItem(STORAGE_KEY_STUDENTS)) || mockStudents;
     const idx = students.findIndex(s => s.id === "current_user");
+
+    // Dynamic resolution of student name based on logged-in user
+    let displayName = "Current Student";
+    try {
+      const auth = JSON.parse(localStorage.getItem("neuropath_auth"));
+      if (auth && auth.name) {
+        if (auth.role === "student") {
+          displayName = auth.name;
+        } else if (auth.role === "parent") {
+          const wardsDb = JSON.parse(localStorage.getItem("neuropath_parent_wards") || "{}");
+          displayName = auth.email ? (wardsDb[auth.email] || "your child") : "your child";
+        } else {
+          displayName = `Demo Student (${auth.name})`;
+        }
+      }
+    } catch (e) {}
+
     const record = {
-      id: "current_user", name: "Current Student (You)",
+      id: "current_user", name: displayName,
       profile: { primary: profile.primary, confidence: profile.confidence, breakdown: profile.breakdown },
       deafOrHoh: profile.deafOrHoh || false,
       capacityLevel: profile.capacityLevel || "medium",
@@ -131,7 +148,35 @@ export const dbService = {
 
   getStudents: () => {
     const d = localStorage.getItem(STORAGE_KEY_STUDENTS);
-    return d ? JSON.parse(d) : mockStudents;
+    const students = d ? JSON.parse(d) : mockStudents;
+    try {
+      const auth = JSON.parse(localStorage.getItem("neuropath_auth"));
+      if (auth) {
+        // Read parent ward names
+        const wardsDb = JSON.parse(localStorage.getItem("neuropath_parent_wards") || "{}");
+        const wardName = auth.email ? (wardsDb[auth.email] || "") : "";
+
+        return students.map(s => {
+          if (s.id === "current_user") {
+            let name = s.name;
+            if (auth.role === "student") {
+              const baseName = auth.name || "Current Student";
+              name = baseName.includes("(You)") ? baseName : `${baseName} (You)`;
+            } else if (auth.role === "parent") {
+              name = wardName || "your child";
+            } else {
+              name = name.replace(" (You)", "");
+              if (name === "Current Student") {
+                name = `Demo Student (${auth.name || "Teacher"})`;
+              }
+            }
+            return { ...s, name };
+          }
+          return s;
+        });
+      }
+    } catch (e) {}
+    return students;
   },
 
   updateStudent: (student) => {
@@ -150,6 +195,34 @@ export const dbService = {
 
   getInterventionLogs: () => {
     const d = localStorage.getItem(STORAGE_KEY_LOGS);
-    return d ? JSON.parse(d) : [];
+    const logs = d ? JSON.parse(d) : [];
+    try {
+      const auth = JSON.parse(localStorage.getItem("neuropath_auth"));
+      if (auth) {
+        // Read parent ward names
+        const wardsDb = JSON.parse(localStorage.getItem("neuropath_parent_wards") || "{}");
+        const wardName = auth.email ? (wardsDb[auth.email] || "") : "";
+
+        return logs.map(l => {
+          if (l.studentId === "current_user") {
+            let name = l.studentName;
+            if (auth.role === "student") {
+              const baseName = auth.name || "Current Student";
+              name = baseName.includes("(You)") ? baseName : `${baseName} (You)`;
+            } else if (auth.role === "parent") {
+              name = wardName || "your child";
+            } else {
+              name = name.replace(" (You)", "");
+              if (name === "Current Student") {
+                name = `Demo Student (${auth.name || "Teacher"})`;
+              }
+            }
+            return { ...l, studentName: name };
+          }
+          return l;
+        });
+      }
+    } catch (e) {}
+    return logs;
   },
 };

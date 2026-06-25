@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen,
   Clock,
@@ -135,6 +135,31 @@ export default function ParentPortal() {
   const { user, logout } = useAuthStore();
   const studentProfile = useStore((s) => s.studentProfile);
 
+  const [wardNameInput, setWardNameInput] = useState("");
+  const [storedWardName, setStoredWardName] = useState(() => {
+    try {
+      const wardsDb = JSON.parse(localStorage.getItem("neuropath_parent_wards") || "{}");
+      return user?.email ? (wardsDb[user.email] || "") : "";
+    } catch {
+      return "";
+    }
+  });
+
+  const handleSaveWard = (e) => {
+    e.preventDefault();
+    if (!wardNameInput.trim()) return;
+    try {
+      const wardsDb = JSON.parse(localStorage.getItem("neuropath_parent_wards") || "{}");
+      wardsDb[user.email] = wardNameInput.trim();
+      localStorage.setItem("neuropath_parent_wards", JSON.stringify(wardsDb));
+      setStoredWardName(wardNameInput.trim());
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const showWardPrompt = user?.role === "parent" && !storedWardName;
+
   const report = useMemo(() => {
     const student = dbService.getStudents().find((s) => s.id === "current_user");
     const sessions = studentProfile?.sessions?.length
@@ -188,7 +213,7 @@ export default function ParentPortal() {
       hasData: sessions.length > 0 || struggles.length > 0,
       primary: studentProfile?.primary,
     };
-  }, [studentProfile]);
+  }, [studentProfile, storedWardName]);
 
   const maxMins = Math.max(...report.weeklyData.map((d) => d.mins), 1);
   const weekLabel = new Date().toLocaleDateString("en-US", {
@@ -475,8 +500,53 @@ export default function ParentPortal() {
           Raw behavioral data (re-read counts, pause lengths) stays internal to
           NeuroPath and is never shared with parents or third parties. This report
           contains only outcomes and plain-language summaries.
-        </div>
       </div>
+
+      {/* Ward Name Prompt Modal Overlay */}
+      <AnimatePresence>
+        {showWardPrompt && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/85 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md glass-panel rounded-3xl border border-white/10 p-8 bg-dark-bg/95 shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-10 text-center"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-accent-pink/15 border border-accent-pink/20 flex items-center justify-center mx-auto mb-5 text-accent-pinkLight">
+                <Heart size={22} className="fill-accent-pink text-accent-pink" />
+              </div>
+              <h3 className="font-display font-black text-2xl text-text-primary mb-2">Welcome to Parent Portal</h3>
+              <p className="text-text-dim text-sm mb-6 leading-relaxed">
+                To customize your reports, please enter the name of your child or ward.
+              </p>
+              <form onSubmit={handleSaveWard} className="space-y-4">
+                <input
+                  type="text"
+                  placeholder="Enter name (e.g. Rahul, Sophia)"
+                  value={wardNameInput}
+                  onChange={(e) => setWardNameInput(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-sm text-text-primary placeholder:text-text-faint focus:border-accent-pink focus:bg-white/[0.05] focus:outline-none transition-all text-center"
+                  required
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-accent-pink to-[#C2127F] text-white font-bold text-sm shadow-[0_6px_24px_rgba(255,29,126,0.4)] flex items-center justify-center gap-2"
+                >
+                  Save & View Reports
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
+  </div>
   );
 }

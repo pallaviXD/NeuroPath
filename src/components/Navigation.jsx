@@ -15,7 +15,13 @@ export default function Navigation() {
   const studentProfile = useStore((state) => state.studentProfile);
   const { user, logout } = useAuthStore();
 
-  const navItems = user?.role === "teacher" || user?.role === "admin"
+  const navItems = user?.role === "admin"
+    ? [
+        { label: "Home", path: "/" },
+        { label: "Admin Console", path: "/dashboard" },
+        { label: "Teacher View", path: "/dashboard/heatmap" },
+      ]
+    : user?.role === "teacher"
     ? [
         { label: "Home", path: "/" },
         { label: "Dashboard", path: "/dashboard" },
@@ -43,7 +49,8 @@ export default function Navigation() {
 
   const getCTALabel = () => {
     if (user) {
-      if (user.role === "teacher" || user.role === "admin") return "Teacher Dashboard";
+      if (user.role === "admin") return "Admin Console";
+      if (user.role === "teacher") return "Teacher Dashboard";
       if (user.role === "parent") return "My Portal";
       return studentProfile.primary ? "My Lessons" : "Get Profile";
     }

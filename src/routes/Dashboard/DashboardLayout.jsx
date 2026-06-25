@@ -1,26 +1,49 @@
+import { useEffect } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Layers, BarChart2, Eye, Activity, FileUp, History } from "lucide-react";
+import { Layers, BarChart2, Eye, Activity, FileUp, History, Settings } from "lucide-react";
+import { useStore } from "../../store/useStore";
+import { useAuthStore } from "../../store/useAuthStore";
 
 export default function DashboardLayout() {
   const location = useLocation();
+  const fetchDashboardStudents = useStore((state) => state.fetchDashboardStudents);
+  const user = useAuthStore((state) => state.user);
 
-  const tabItems = [
-    { label: "Class Heatmap", path: "/dashboard", icon: <Layers size={14} /> },
-    { label: "Analytics & Trends", path: "/dashboard/analytics", icon: <BarChart2 size={14} /> },
-    { label: "Live Log", path: "/dashboard/live-log", icon: <Activity size={14} /> },
-    { label: "Deaf & Sign Language", path: "/dashboard/sign-language", icon: <Eye size={14} /> },
-    { label: "Content Ingestion", path: "/dashboard/content", icon: <FileUp size={14} /> },
-    { label: "Saved Lessons", path: "/dashboard/saved", icon: <History size={14} /> },
-  ];
+  useEffect(() => {
+    fetchDashboardStudents();
+  }, [fetchDashboardStudents]);
+
+  const tabItems = user?.role === "admin"
+    ? [
+        { label: "Admin Console", path: "/dashboard", icon: <Settings size={14} /> },
+        { label: "Class Heatmap", path: "/dashboard/heatmap", icon: <Layers size={14} /> },
+        { label: "Analytics & Trends", path: "/dashboard/analytics", icon: <BarChart2 size={14} /> },
+        { label: "Live Log", path: "/dashboard/live-log", icon: <Activity size={14} /> },
+        { label: "Deaf & Sign Language", path: "/dashboard/sign-language", icon: <Eye size={14} /> },
+        { label: "Content Ingestion", path: "/dashboard/content", icon: <FileUp size={14} /> },
+        { label: "Saved Lessons", path: "/dashboard/saved", icon: <History size={14} /> },
+      ]
+    : [
+        { label: "Class Heatmap", path: "/dashboard", icon: <Layers size={14} /> },
+        { label: "Analytics & Trends", path: "/dashboard/analytics", icon: <BarChart2 size={14} /> },
+        { label: "Live Log", path: "/dashboard/live-log", icon: <Activity size={14} /> },
+        { label: "Deaf & Sign Language", path: "/dashboard/sign-language", icon: <Eye size={14} /> },
+        { label: "Content Ingestion", path: "/dashboard/content", icon: <FileUp size={14} /> },
+        { label: "Saved Lessons", path: "/dashboard/saved", icon: <History size={14} /> },
+      ];
 
   const getActiveTab = () => {
+    if (location.pathname === "/dashboard/heatmap") return "/dashboard/heatmap";
     if (location.pathname === "/dashboard/analytics") return "/dashboard/analytics";
     if (location.pathname === "/dashboard/live-log") return "/dashboard/live-log";
     if (location.pathname === "/dashboard/sign-language") return "/dashboard/sign-language";
     if (location.pathname === "/dashboard/content") return "/dashboard/content";
     if (location.pathname === "/dashboard/saved") return "/dashboard/saved";
+    if (location.pathname === "/dashboard/admin") return "/dashboard";
     // StudentDetail lives under /dashboard/student/:id — keep heatmap tab active
-    if (location.pathname.startsWith("/dashboard/student")) return "/dashboard";
+    if (location.pathname.startsWith("/dashboard/student")) {
+      return user?.role === "admin" ? "/dashboard/heatmap" : "/dashboard";
+    }
     return "/dashboard";
   };
 
@@ -32,10 +55,12 @@ export default function DashboardLayout() {
       <div className="text-left mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display font-bold text-2xl md:text-3xl text-text-primary tracking-tight">
-            Teacher Command Panel
+            {user?.role === "admin" ? "Admin Command Panel" : "Teacher Command Panel"}
           </h1>
           <p className="text-text-dim text-xs md:text-sm mt-1">
-            Monitor real-time cognitive struggle alerts, adaptive lesson redirects, and modality distributions.
+            {user?.role === "admin"
+              ? "Manage district settings, curriculum alignment, SSO configurations, and federal compliance audits."
+              : "Monitor real-time cognitive struggle alerts, adaptive lesson redirects, and modality distributions."}
           </p>
         </div>
         

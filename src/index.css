@@ -139,3 +139,140 @@
     opacity: 0.15 !important;
   }
 }
+
+/* Root font-sizing classes for global relative text scaling */
+html.font-size-normal {
+  font-size: 16px !important;
+}
+
+html.font-size-large {
+  font-size: 19px !important;
+}
+
+html.font-size-larger {
+  font-size: 22px !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HIGH CONTRAST MODE GLOBAL OVERRIDES
+   ────────────────────────────────────────────────────────────────────────── */
+html.mode-high-contrast,
+html.mode-high-contrast body,
+html.mode-high-contrast #root {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+}
+
+/* Remove all blurs, ambient glows, noise grids, and decorative elements */
+html.mode-high-contrast .glow-orb,
+html.mode-high-contrast .cursor-glow,
+html.mode-high-contrast .noise-grid {
+  display: none !important;
+}
+
+/* Panels, cards, menus */
+html.mode-high-contrast .glass-panel,
+html.mode-high-contrast .glass-card,
+html.mode-high-contrast .bg-surface-glass,
+html.mode-high-contrast .glass-card2 {
+  background: #000000 !important;
+  border: 2px solid #FFFFFF !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Typography elements */
+html.mode-high-contrast h1,
+html.mode-high-contrast h2,
+html.mode-high-contrast h3,
+html.mode-high-contrast h4,
+html.mode-high-contrast h5,
+html.mode-high-contrast h6,
+html.mode-high-contrast p,
+html.mode-high-contrast span,
+html.mode-high-contrast label,
+html.mode-high-contrast strong,
+html.mode-high-contrast b,
+html.mode-high-contrast i,
+html.mode-high-contrast small {
+  color: #FFFFFF !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* Highlight yellow text for important items / accents */
+html.mode-high-contrast .text-accent-pink,
+html.mode-high-contrast .text-accent-pinkLight,
+html.mode-high-contrast .text-accent-violet,
+html.mode-high-contrast .text-accent-violetLight,
+html.mode-high-contrast .text-accent-mint,
+html.mode-high-contrast .text-accent-amber,
+html.mode-high-contrast .text-accent-purpleLight,
+html.mode-high-contrast .gradient-text-shift,
+html.mode-high-contrast .font-bold.text-text-primary,
+html.mode-high-contrast strong.text-text-primary {
+  color: #FFFF00 !important;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  background-clip: initial !important;
+  -webkit-text-fill-color: initial !important;
+  text-fill-color: initial !important;
+  font-weight: 900 !important;
+}
+
+/* Navigation headers and lines */
+html.mode-high-contrast header,
+html.mode-high-contrast nav,
+html.mode-high-contrast .border-b,
+html.mode-high-contrast .border-t,
+html.mode-high-contrast .border-white\/5,
+html.mode-high-contrast .border-white\/8,
+html.mode-high-contrast .border-white\/10 {
+  border-color: #FFFFFF !important;
+  background: #000000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Buttons, links, inputs, and selects */
+html.mode-high-contrast button,
+html.mode-high-contrast a,
+html.mode-high-contrast select,
+html.mode-high-contrast input {
+  color: #FFFFFF !important;
+  border: 2px solid #FFFFFF !important;
+  background: #000000 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  transition: none !important;
+}
+
+html.mode-high-contrast button:hover,
+html.mode-high-contrast a:hover {
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  border-color: #000000 !important;
+}
+
+html.mode-high-contrast button:hover *,
+html.mode-high-contrast a:hover * {
+  color: #000000 !important;
+}
+
+/* Specific icons */
+html.mode-high-contrast svg {
+  stroke: currentColor !important;
+  fill: none !important;
+}
+
+/* Charts and Recharts styling for visibility */
+html.mode-high-contrast .recharts-cartesian-grid-horizontal line,
+html.mode-high-contrast .recharts-cartesian-grid-vertical line {
+  stroke: #FFFFFF !important;
+  stroke-dasharray: none !important;
+}
+
+html.mode-high-contrast .recharts-polar-grid-shape {
+  stroke: #FFFFFF !important;
+}

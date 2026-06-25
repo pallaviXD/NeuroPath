@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import { Search, SlidersHorizontal, Activity, Radio } from "lucide-react";
 import { useStore } from "../../store/useStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { subscribeInterventions } from "../../lib/eventBus";
 
 export default function LiveLog() {
+  const { user } = useAuthStore();
   const { dashboardLogs, addLiveLog, dashboardStudents } = useStore();
 
   const [filterModality, setFilterModality] = useState("all");
@@ -181,8 +183,8 @@ export default function LiveLog() {
                     className={`w-2 h-2 rounded-full flex-shrink-0 ${getModalityColor(log.modality)}`}
                   />
                   <span className="font-semibold text-text-primary w-[110px] flex-shrink-0 truncate">
-                    {log.studentName}
-                    {log.studentId === "current_user" && !log.simulated && (
+                    {log.studentName?.replace(" (You)", "")}
+                    {log.studentId === "current_user" && !log.simulated && user?.role === "student" && (
                       <span className="block text-[9px] text-accent-mint font-mono font-normal">
                         you
                       </span>

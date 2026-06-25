@@ -1,4 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
+import { generateText } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { SGSL_PROMPT_PREFIX, enrichGlossSequence } from "../data/sgslGloss.js";
 import { enrichToken, flattenSignSections } from "./signPoseMap.js";
 
@@ -17,21 +18,23 @@ function shouldUseProxy() {
   );
 }
 
-let client = null;
-
-function getClient() {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  if (!client) client = new GoogleGenAI({ apiKey });
-  return client;
-}
-
 export function isAgentConfigured() {
   return !!getApiKey() || import.meta.env.VITE_USE_GEMINI_PROXY === "true";
 }
 
 export function isUsingProxy() {
   return shouldUseProxy() && !getApiKey();
+}
+
+function hasClient() {
+  return isAgentConfigured();
+}
+
+function getAiModel() {
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+  const google = createGoogleGenerativeAI({ apiKey });
+  return google(MODEL);
 }
 
 function parseJson(text) {
@@ -111,8 +114,8 @@ async function generateJson(prompt, schemaHint, _attempt = 0, onStatus = null) {
   }
 
   // --- direct API path ---
-  const ai = getClient();
-  if (!ai) {
+  const modelInstance = getAiModel();
+  if (!modelInstance) {
     try {
       return await generateViaProxy(prompt, schemaHint);
     } catch {
@@ -121,13 +124,10 @@ async function generateJson(prompt, schemaHint, _attempt = 0, onStatus = null) {
   }
 
   try {
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: `${prompt}\n\nRespond with valid JSON only. Schema:\n${schemaHint}`,
-      config: {
-        responseMimeType: "application/json",
-        temperature: 0.4,
-      },
+    const response = await generateText({
+      model: modelInstance,
+      prompt: `${prompt}\n\nRespond with valid JSON only. Schema:\n${schemaHint}`,
+      temperature: 0.4,
     });
     return parseJson(response.text);
   } catch (err) {
@@ -214,7 +214,7 @@ export async function resolveStruggle({
       lesson,
     });
 
-  if (!getClient()) return fallback();
+  if (!hasClient()) return fallback();
 
   try {
     const result = await generateJson(
@@ -297,7 +297,7 @@ function normalizeGloss(gloss) {
 }
 
 export async function translateText(text, targetLang) {
-  if (!getClient()) {
+  if (!hasClient()) {
     throw new Error("Missing API Key. Please click the key icon to configure Gemini.");
   }
   const prompt = `Translate the following educational text into ${targetLang}. Preserve all formatting, tone, and spacing exactly as it appears. DO NOT add any extra commentary.
@@ -315,7 +315,7 @@ export async function generateLessonFoundation(sourceText, fileName = "upload", 
   const trimmed = sourceText.trim().slice(0, 4000);
   if (!trimmed) throw new Error("No readable text found in the file.");
 
-  if (!getClient()) {
+  if (!hasClient()) {
     throw new Error(
       "Gemini API key not configured. Add VITE_GEMINI_API_KEY to your .env file."
     );
@@ -594,7 +594,7 @@ function normalizeSignStudyResult(result, foundation) {
 export async function generateFullSignStudy(foundation) {
   const source = (foundation.originalText || foundation.description || "").slice(0, 10000);
 
-  if (!getClient() && !shouldUseProxy()) {
+  if (!hasClient()) {
     return buildFallbackSignStudy(foundation);
   }
 
@@ -715,7 +715,7 @@ export async function analyzeStudentCapacity({
     };
   };
 
-  if (!getClient()) return fallback();
+  if (!hasClient()) return fallback();
 
   try {
     const result = await generateJson(

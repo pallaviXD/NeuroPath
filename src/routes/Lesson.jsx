@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertCircle, ArrowRight, BookOpen, Layers, CheckCircle2, ChevronRight, Award, Activity, Loader2, PlayCircle, ExternalLink } from "lucide-react";
+import { AlertCircle, ArrowRight, BookOpen, Layers, CheckCircle2, ChevronRight, Award, Activity, Loader2, PlayCircle, ExternalLink, Volume2, VolumeX, Mic, MicOff } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { getLesson, saveGeneratedLesson } from "../lib/lessons";
 import {
@@ -30,6 +30,7 @@ import { useAccessibilityStore, ACCESSIBILITY_MODES } from "../store/useAccessib
 import LessonPlayerHeader from "../components/lesson/LessonPlayerHeader";
 import AccessibilityLessonView from "../components/lesson/AccessibilityLessonView";
 import CaptionsRenderer from "../components/accessibility/CaptionsRenderer";
+import { speakText, stopSpeaking, startListening, stopListening } from "../lib/speech/speechEngine";
 
 export default function Lesson() {
   const { lessonId } = useParams();
@@ -73,6 +74,12 @@ export default function Lesson() {
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
   const [visualSubMode, setVisualSubMode] = useState("media");
 
+  // Speech integration states
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [micTranscript, setMicTranscript] = useState("");
+  const [speechError, setSpeechError] = useState("");
+
   // Refs for tracking telemetry struggle
   const lastScrollTime = useRef(Date.now());
   const paragraphRef = useRef(null);
@@ -84,10 +91,26 @@ export default function Lesson() {
   const idleTimerRef = useRef(null);
   const isQuestionActive = useRef(false);
 
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+      stopListening();
+    };
+  }, []);
+
   // Initialize modality
   useEffect(() => {
     if (!lesson) return;
     
+    // Stop any ongoing speech or voice listening
+    stopSpeaking();
+    stopListening();
+    setIsSpeaking(false);
+    setIsListening(false);
+    setMicTranscript("");
+    setSpeechError("");
+
     // Always reset to null so the user always sees the choice menu
     if (!lesson.modalities) lesson.modalities = {};
     setActiveModality(null);
@@ -459,6 +482,96 @@ export default function Lesson() {
     }
   };
 
+  const handleSpeakModality = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+      setIsSpeaking(false);
+      return;
+    }
+
+    let textToSpeak = "";
+    if (activeModality === "visual") {
+      textToSpeak = lesson.modalities?.visual?.content || "";
+    } else if (activeModality === "narrative") {
+      textToSpeak = `${lesson.modalities?.narrative?.storyTitle || ""}. ${lesson.modalities?.narrative?.content || ""}`;
+    } else if (activeModality === "kinesthetic") {
+      textToSpeak = lesson.modalities?.kinesthetic?.instructions || "";
+    } else if (activeModality === "shorter") {
+      textToSpeak = lesson.modalities?.shorter?.content || "";
+    } else {
+      textToSpeak = lesson.description || lesson.originalText || "";
+    }
+
+    if (!textToSpeak) return;
+
+    speakText(
+      textToSpeak,
+      () => setIsSpeaking(true),
+      () => setIsSpeaking(false),
+      (err) => {
+        setIsSpeaking(false);
+        setSpeechError(err);
+      }
+    );
+  };
+
+  const handleVoiceAnswer = () => {
+    if (isListening) {
+      stopListening();
+      setIsListening(false);
+      return;
+    }
+
+    setSpeechError("");
+    setMicTranscript("");
+    setIsListening(true);
+
+    startListening(
+      (transcript) => {
+        setMicTranscript(transcript);
+        setIsListening(false);
+
+        // Process transcription to find the matching choice
+        if (lesson.microCheck && lesson.microCheck.options) {
+          const spoken = transcript.toLowerCase();
+          let matchedIndex = -1;
+
+          // Strategy 1: Match option contents
+          lesson.microCheck.options.forEach((opt, idx) => {
+            const cleanOpt = opt.toLowerCase();
+            if (spoken.includes(cleanOpt) || cleanOpt.includes(spoken)) {
+              matchedIndex = idx;
+            }
+          });
+
+          // Strategy 2: Numeric/ordinal clues
+          if (matchedIndex === -1) {
+            if (spoken.includes("first") || spoken.includes("one") || spoken.includes("1")) {
+              matchedIndex = 0;
+            } else if (spoken.includes("second") || spoken.includes("two") || spoken.includes("2")) {
+              matchedIndex = 1;
+            } else if (spoken.includes("third") || spoken.includes("three") || spoken.includes("3")) {
+              matchedIndex = 2;
+            }
+          }
+
+          if (matchedIndex !== -1 && matchedIndex < lesson.microCheck.options.length) {
+            handleMicroCheck(matchedIndex);
+          } else {
+            setSpeechError(`Could not match "${transcript}" to any option.`);
+          }
+        }
+      },
+      (err) => {
+        setIsListening(false);
+        setSpeechError(err || "Microphone error");
+      },
+      () => {
+        setIsListening(false);
+      }
+    );
+  };
+
   const progressPercent = lessonComplete 
     ? 100 
     : showAssessment 
@@ -468,9 +581,9 @@ export default function Lesson() {
         : 25;
 
   const getTextSizeClass = () => {
-    if (fontSize === "large") return "text-[18px] md:text-[20px] leading-relaxed";
-    if (fontSize === "larger") return "text-[21px] md:text-[24px] leading-loose";
-    return "text-[14.5px] leading-relaxed";
+    if (fontSize === "large") return "text-base md:text-lg leading-relaxed";
+    if (fontSize === "larger") return "text-lg md:text-xl leading-loose";
+    return "text-sm leading-relaxed";
   };
 
   const getHighContrastClass = (type) => {
@@ -531,9 +644,23 @@ export default function Lesson() {
             // ============ LESSON CONTENT VIEW ============
             <div>
               <div className="flex items-center justify-between mb-4">
-                <span className={`font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase ${getHighContrastClass("text")}`}>
-                  {lesson.subject}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={`font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase ${getHighContrastClass("text")}`}>
+                    {lesson.subject}
+                  </span>
+                  {activeModality && activeModality !== "sign" && (
+                    <button
+                      onClick={handleSpeakModality}
+                      className={`flex items-center gap-1.5 font-mono text-[10px] text-text-dim hover:text-accent-pink border border-white/10 hover:border-accent-pink/30 px-3 py-1 rounded-full transition-colors cursor-pointer ${
+                        isSpeaking ? "bg-accent-pink/15 border-accent-pink/50 text-accent-pinkLight" : ""
+                      }`}
+                      title={isSpeaking ? "Stop Narration" : "Listen to Explanation"}
+                    >
+                      {isSpeaking ? <VolumeX size={11} /> : <Volume2 size={11} />}
+                      {isSpeaking ? "Stop Voice" : "Listen"}
+                    </button>
+                  )}
+                </div>
                 {mode === ACCESSIBILITY_MODES.STANDARD && (
                   <button 
                     onClick={() => setActiveModality(null)}
@@ -717,12 +844,36 @@ export default function Lesson() {
               {/* Inline concept checkpoint */}
               {lesson.microCheck && (
                 <div className="mt-8 pt-6 border-t border-dashed border-white/10 text-left">
-                  <h4 className={`font-display font-semibold text-sm text-text-primary mb-1 ${getHighContrastClass("text")}`}>
-                    {postInterventionCheck ? "Post-Adaptation Check" : "Concept Checkpoint"}
-                  </h4>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={`font-display font-semibold text-sm text-text-primary ${getHighContrastClass("text")}`}>
+                      {postInterventionCheck ? "Post-Adaptation Check" : "Concept Checkpoint"}
+                    </h4>
+                    {!microResolved && (
+                      <button
+                        onClick={handleVoiceAnswer}
+                        className={`flex items-center gap-1.5 font-mono text-[10px] text-text-dim hover:text-accent-pink border border-white/10 hover:border-accent-pink/30 px-3 py-1 rounded-full transition-colors cursor-pointer ${
+                          isListening ? "bg-accent-pink/15 border-accent-pink/50 text-accent-pinkLight animate-pulse" : ""
+                        }`}
+                        title={isListening ? "Stop listening" : "Answer using your voice"}
+                      >
+                        {isListening ? <MicOff size={11} /> : <Mic size={11} />}
+                        {isListening ? "Listening..." : "Answer with Voice"}
+                      </button>
+                    )}
+                  </div>
                   {postInterventionCheck && !interventionOutcome && (
                     <p className="text-[11px] text-accent-amber font-mono mb-3">
                       Review the adapted {activeModality} explanation above, then verify your understanding.
+                    </p>
+                  )}
+                  {micTranscript && (
+                    <p className="text-[10px] text-accent-mint font-mono mb-2 bg-accent-mint/5 border border-accent-mint/15 px-3 py-1.5 rounded-lg">
+                      Transcribed: "{micTranscript}"
+                    </p>
+                  )}
+                  {speechError && (
+                    <p className="text-[10px] text-accent-pink font-mono mb-2 bg-accent-pink/5 border border-accent-pink/15 px-3 py-1.5 rounded-lg">
+                      {speechError}
                     </p>
                   )}
                   <p className={`text-xs text-text-dim mb-4 ${getHighContrastClass("text")}`}>{lesson.microCheck.question}</p>

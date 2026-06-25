@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../../store/useStore";
 import { getLesson } from "../../lib/lessons";
+import { useAuthStore } from "../../store/useAuthStore";
 
 function InterventionReplay({ item, modalityClass }) {
   const [open, setOpen] = useState(false);
@@ -127,6 +128,7 @@ export default function StudentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const students = useStore((state) => state.dashboardStudents);
+  const user = useAuthStore((state) => state.user);
 
   const student = useMemo(() => students.find((s) => s.id === id), [students, id]);
 
@@ -148,7 +150,7 @@ export default function StudentDetail() {
           Student not found
         </h4>
         <Link
-          to="/dashboard"
+          to={user?.role === "admin" ? "/dashboard/heatmap" : "/dashboard"}
           className="text-accent-pink hover:underline text-xs font-mono"
         >
           Back to dashboard
@@ -181,7 +183,7 @@ export default function StudentDetail() {
     <div className="space-y-6">
       <div className="flex justify-start">
         <button
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate(user?.role === "admin" ? "/dashboard/heatmap" : "/dashboard")}
           className="text-xs font-mono text-text-faint hover:text-accent-pink transition-colors flex items-center gap-1 cursor-pointer"
         >
           <ChevronLeft size={14} /> Back to Class list

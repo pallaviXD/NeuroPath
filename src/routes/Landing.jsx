@@ -172,8 +172,8 @@ function FingerprintCard() {
                 animate={{opacity:[1,0.3,1],scale:[1,0.8,1]}} transition={{duration:1.5,repeat:Infinity}} />
               <span className="font-mono text-[10px] text-accent-mint uppercase tracking-[0.15em] font-bold">Cognitive Scan · Live</span>
             </div>
-            <p className="font-display font-bold text-base text-text-primary">What is Newton's First Law?</p>
-            <p className="font-mono text-[9.5px] text-text-faint mt-0.5">Same concept in 4 formats · We watch your behavior</p>
+            <p className="font-display font-bold text-base text-text-primary">Ready to analyse your learning style?</p>
+            <p className="font-mono text-[9.5px] text-text-faint mt-0.5">Upload any PDF · Auto-adapted to visual, story, hands-on, or sign</p>
           </div>
           <div className="font-mono text-xs text-text-faint bg-white/5 px-2.5 py-1 rounded-lg">00:32</div>
         </div>

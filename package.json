@@ -10,9 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.0",
     "@google/genai": "^2.9.0",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
+    "ai": "^7.0.0",
     "clsx": "^2.1.1",
     "firebase": "^12.15.0",
     "framer-motion": "^12.40.0",

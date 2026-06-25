@@ -200,9 +200,13 @@ export const useStore = create((set, get) => ({
     return profile;
   },
 
-  // Dashboard actions
   fetchDashboardStudents: () => {
-    set({ dashboardStudents: dbService.getStudents() });
+    set({
+      dashboardStudents: dbService.getStudents(),
+      dashboardLogs: dbService.getInterventionLogs().length
+        ? dbService.getInterventionLogs()
+        : initialLogs
+    });
   },
 
   triggerStruggleIntervention: (studentId, concept, struggleType, targetModality, agentMeta = {}) => {
