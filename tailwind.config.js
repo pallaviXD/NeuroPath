@@ -20,11 +20,19 @@ export default {
           violetLight: "#A472FF",
           mint: "#15CFA0",
           amber: "#FFB347",
+          amberLight: "#FFC96B",
+          blue: "#3B82F6",
+          blueLight: "#60A5FA",
+          purple: "#8B5CF6",
+          purpleLight: "#A78BFA",
         },
         text: {
           primary: "#F5F2FA",
           dim: "#B8B3C4",
           faint: "#766F85",
+        },
+        surface: {
+          glass: "rgba(21, 16, 29, 0.7)",
         },
       },
       fontFamily: {

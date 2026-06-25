@@ -1,2 +1,5 @@
-// Re-export from JSX file (Vite requires .jsx extension for JSX content)
-export { SVGSignPlayer, SVGSignRenderer } from "./SVGSignRenderer.jsx";
+// Re-export from JSX file
+export { SVGSignPlayer } from "./SVGSignRenderer.jsx";
+
+// SVGSignRenderer is an alias for SVGSignPlayer (backward compat)
+export { SVGSignPlayer as SVGSignRenderer } from "./SVGSignRenderer.jsx";
