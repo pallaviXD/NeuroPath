@@ -8,6 +8,7 @@ import Signup from "./routes/Signup";
 import Onboarding from "./routes/Onboarding";
 import Lessons from "./routes/Lessons";
 import Lesson from "./routes/Lesson";
+import InstantLesson from "./routes/InstantLesson";
 import Demo from "./routes/Demo";
 import ParentPortal from "./routes/ParentPortal";
 import DashboardLayout from "./routes/Dashboard/DashboardLayout";
@@ -33,6 +34,7 @@ function AppShell() {
           <Route path="/" element={<Landing />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/lessons" element={<Lessons />} />
+          <Route path="/instant" element={<InstantLesson />} />
           <Route path="/lesson/:lessonId" element={<Lesson />} />
           <Route path="/demo" element={<Demo />} />
           <Route path="/dashboard" element={<DashboardLayout />}>

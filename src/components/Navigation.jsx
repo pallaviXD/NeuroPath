@@ -18,7 +18,7 @@ export default function Navigation() {
   const navItems = [
     { label: "Home", path: "/" },
     { label: "Lessons", path: "/lessons" },
-    { label: "Demo", path: "/demo" },
+    { label: "PDF Lesson", path: "/instant" },
     { label: "Dashboard", path: "/dashboard" },
   ];
 

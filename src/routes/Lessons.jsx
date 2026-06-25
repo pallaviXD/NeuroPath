@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
-import { ArrowRight, Sparkles, Brain, Zap, Hand, Eye, BookOpen, CheckCircle2, Star, Clock, Trophy, Upload, Play } from "lucide-react";
-import { useStore } from "../store/useStore";
+import { ArrowRight, Sparkles, Brain, Zap, Hand, Eye, BookOpen, CheckCircle2, Star, Clock, Trophy, Upload, Play } from "lucide-react";import { useStore } from "../store/useStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { listLessonSummaries } from "../lib/lessons";
 
@@ -202,9 +201,25 @@ export default function Lessons() {
               <StreakWidget sessions={sessions} />
             </div>
 
+            {/* Upload PDF CTA — always visible */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+              className="mb-8">
+              <motion.button onClick={() => navigate("/instant")}
+                whileHover={{ scale: 1.03, y: -2 }} whileTap={{ scale: 0.97 }}
+                className="inline-flex items-center gap-3 px-7 py-4 rounded-2xl bg-gradient-to-r from-accent-pink to-[#C2127F] text-white font-black text-base shadow-[0_8px_32px_rgba(255,29,126,0.45)] relative overflow-hidden group">
+                <span className="relative z-10 flex items-center gap-3">
+                  <Upload size={18} /> Upload any PDF → Get instant lesson
+                  <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+                </span>
+                <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </motion.button>
+              <p className="font-mono text-[10px] text-text-faint mt-2 ml-1">
+                Any subject · Gemini generates visual, story, hands-on & sign language formats
+              </p>
+            </motion.div>
+
             {/* No profile CTA */}
-            {!primary && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            {!primary && (              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
                 className="relative overflow-hidden rounded-3xl border border-accent-violet/30 bg-gradient-to-br from-accent-violet/10 to-accent-mint/5 p-6 mb-8">
                 <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-accent-violet/20 blur-3xl pointer-events-none" />
                 <div className="flex items-center gap-6 flex-wrap relative z-10">
