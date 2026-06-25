@@ -2,6 +2,10 @@
 
 > **The AI tutoring platform that figures out how each student actually learns — and teaches in that language.**
 
+### 🌐 Live Deployment
+- **Production Alias (Latest Build)**: [https://neuropath-teal.vercel.app](https://neuropath-teal.vercel.app)
+- **Deployment Build Snapshot**: [https://neuropath-hhlpb9jh2-ansika2004s-projects.vercel.app](https://neuropath-hhlpb9jh2-ansika2004s-projects.vercel.app)
+
 NeuroPath watches how a student interacts with a concept (hover, scroll, pause, re-read, reaction time) and silently builds a cognitive fingerprint. Every lesson then reshapes itself into the format that student's brain understands — visual diagrams, narrative stories, hands-on simulations, or 3D sign language. Zero quizzes. Zero labels. Zero self-report.
 
 ---
@@ -78,6 +82,12 @@ Copy `.env.example` → `.env` and fill in:
 - **Content Ingestion** — Upload PDF → Gemini generates lesson → auto-appears in Saved Lessons
 - **Saved Lessons** — All AI-generated lessons with cached modality status, zero API calls to reopen
 
+### ⚙️ Admin Command Panel (`/dashboard` index for Admin)
+- **SSO Sync Status** — Force synchronization of district-wide student roster records.
+- **Academic Standards** — Dynamically toggle curriculum mapping structures between NGSS, Common Core, and state guidelines.
+- **Compliance Export** — Export compiled, VPAT/IDEA-compliant audit PDFs for district reporting.
+- **District Enrollment Metrics** — Live overview of modality distribution across multiple schools in the district.
+
 ### 👩‍🎓 Student Dashboard (`/student-dashboard`)
 - Cognitive profile with modality breakdown bars
 - Capacity level badge from balloon game AI analysis
@@ -86,6 +96,7 @@ Copy `.env.example` → `.env` and fill in:
 
 ### 🏠 Parent Portal (`/parent`)
 - Weekly digest: time spent, concepts mastered, struggles resolved
+- Plain-language weekly update for parent profile naming mapping
 - Plain-language at-home support tips personalized to child's modality
 - No raw behavioral telemetry exposed
 
@@ -104,13 +115,15 @@ Copy `.env.example` → `.env` and fill in:
 | `/instant` | Drop PDF → instant 4-format lesson, inline | Everyone |
 | `/student-dashboard` | Student progress, profile, recent sessions | Students |
 | `/demo` | Dual-student live simulation (Student A vs Student B) | Everyone |
-| `/dashboard` | Teacher command panel (6 tabs) | Teachers / Admins |
-| `/dashboard/analytics` | Charts and trends | Teachers |
-| `/dashboard/live-log` | Real-time intervention feed | Teachers |
-| `/dashboard/sign-language` | Deaf/HoH student tracker + sign previewer | Teachers |
-| `/dashboard/content` | PDF upload → AI lesson generation | Teachers |
-| `/dashboard/saved` | All AI-generated lessons | Teachers |
-| `/dashboard/student/:id` | Per-student detail: radar chart, session history, intervention replay | Teachers |
+| `/dashboard` | Admin Console (for Admin) / Class Heatmap (for Teacher) | Teachers / Admins |
+| `/dashboard/heatmap` | Teacher view (Class Heatmap) for Admin | Admins |
+| `/dashboard/analytics` | Charts and trends | Teachers / Admins |
+| `/dashboard/live-log` | Real-time intervention feed | Teachers / Admins |
+| `/dashboard/sign-language` | Deaf/HoH student tracker + sign previewer | Teachers / Admins |
+| `/dashboard/content` | PDF upload → AI lesson generation | Teachers / Admins |
+| `/dashboard/saved` | All AI-generated lessons | Teachers / Admins |
+| `/dashboard/student/:id` | Per-student detail: radar chart, session history, intervention replay | Teachers / Admins |
+| `/dashboard/admin` | Legacy path to Admin Console | Admins |
 | `/parent` | Parent weekly digest portal | Parents |
 
 ---
@@ -120,8 +133,8 @@ Copy `.env.example` → `.env` and fill in:
 | Role | Login redirects to | Nav shows |
 |---|---|---|
 | **Student** | `/student-dashboard` | Home, Lessons, PDF Lesson, My Progress |
-| **Teacher** | `/dashboard` | Home, Dashboard, Lessons, PDF Upload |
-| **Admin** | `/dashboard` | Home, Dashboard, Lessons, PDF Upload |
+| **Teacher** | `/dashboard` (Heatmap) | Home, Dashboard, Lessons, PDF Upload |
+| **Admin** | `/dashboard` (Admin Console) | Home, Admin Console, Teacher View |
 | **Parent** | `/parent` | Home, My Portal |
 
 ---
@@ -135,6 +148,7 @@ Copy `.env.example` → `.env` and fill in:
 | Animation | Framer Motion (particles, spring physics, scroll transforms) |
 | 3D Sign Language | Three.js + React Three Fiber (procedural humanoid avatar) |
 | Sign SVGs | Custom ASL hand illustrations (15 glosses) + fingerspell sprite |
+| Speech Engine | Web Speech API synthesis + reader read-aloud controls |
 | Charts | Recharts |
 | State | Zustand (student profile, dashboard, accessibility, auth) |
 | Routing | React Router v7 |
