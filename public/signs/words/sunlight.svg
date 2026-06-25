@@ -1,0 +1,12 @@
+<svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="sun_palm" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#EAB308" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#EAB308" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="30" r="15" fill="#EAB308" opacity="0.2"/>
+  <path d="M 60 45 L 60 80 M 50 42 L 35 70 M 70 42 L 85 70" stroke="#EAB308" stroke-width="1.5" stroke-dasharray="3 3"/>
+  <path d="M 33 128 Q 29 115 31 103 Q 32 95 38 91 L 43 90 L 55 88 L 67 90 L 76 92 Q 84 97 86 105 Q 88 117 85 128 Z" fill="url(#sun_palm)" stroke="#EAB308" stroke-width="1.3"/>
+  <text x="60" y="156" text-anchor="middle" fill="#EAB308" font-size="10.5" font-family="monospace" font-weight="bold" opacity="0.9">SUNLIGHT</text>
+</svg>

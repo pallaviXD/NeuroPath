@@ -54,13 +54,15 @@ export default function Heatmap() {
           <div>
             <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Active Students</span>
             <span className="font-display font-bold text-2xl text-text-primary">24</span>
+            <span className="text-[10px] text-accent-blue font-mono block mt-1">12 Active Accessibility Users</span>
           </div>
-          <Users className="text-accent-violetLight" size={24} />
+          <Users className="text-accent-blue" size={24} />
         </div>
         <div className="glass-panel p-5 rounded-2xl text-left border border-white/5 flex items-center justify-between">
           <div>
             <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Interventions Today</span>
             <span className="font-display font-bold text-2xl text-accent-pinkLight">42</span>
+            <span className="text-[10px] text-accent-pink font-mono block mt-1">89% Effectiveness Rating</span>
           </div>
           <ShieldAlert className="text-accent-pink" size={24} />
         </div>
@@ -68,6 +70,7 @@ export default function Heatmap() {
           <div>
             <span className="font-mono text-[10.5px] text-text-faint uppercase tracking-wider block mb-1">Signed Deliveries</span>
             <span className="font-display font-bold text-2xl text-accent-mint">6</span>
+            <span className="text-[10px] text-accent-mint font-mono block mt-1">4 Sign Language Users</span>
           </div>
           <Award className="text-accent-mint" size={24} />
         </div>
@@ -89,9 +92,19 @@ export default function Heatmap() {
                 className="flex items-center gap-3 py-1 hover:bg-white/[0.02] px-2 rounded-lg cursor-pointer transition-colors"
                 onClick={() => navigate(`/dashboard/student/${student.id}`)}
               >
-                {/* Student Name */}
-                <div className="w-[140px] text-xs font-semibold text-text-dim truncate hover:text-text-primary transition-colors">
-                  {student.name}
+                {/* Student Name with Modality Badges */}
+                <div className="w-[140px] text-xs font-semibold text-text-dim truncate hover:text-text-primary transition-colors flex items-center gap-1.5">
+                  <span className="truncate">{student.name}</span>
+                  {student.profile?.deafOrHoh && (
+                    <span className="font-mono text-[9px] bg-accent-mint/15 text-accent-mint px-1.5 py-0.5 rounded border border-accent-mint/20 uppercase shrink-0" title="Deaf/HoH - Sign Support">
+                      SL
+                    </span>
+                  )}
+                  {student.profile?.primary && (
+                    <span className="font-mono text-[8px] bg-accent-purple/15 text-accent-purpleLight px-1 py-0.5 rounded border border-accent-purple/20 uppercase shrink-0" title={`Primary Modality: ${student.profile.primary}`}>
+                      {student.profile.primary[0]}
+                    </span>
+                  )}
                 </div>
 
                 {/* 12 Checkpoint cells */}

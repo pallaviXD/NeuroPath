@@ -1,0 +1,16 @@
+<svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="let_grad_F" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#15CFA0" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#15CFA0" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <!-- Stylized hand contour representation -->
+  <path d="M 37 128 Q 33 115 34 103 Q 35 95 41 91 L 45 90 L 56 88 L 67 90 L 75 91 Q 82 96 84 104 Q 86 116 83 128 Z" fill="url(#let_grad_F)" stroke="#15CFA0" stroke-width="1.3"/>
+  <!-- Highlight overlay bubble showing the letter -->
+  <circle cx="60" cy="65" r="22" fill="#15CFA0" opacity="0.08" stroke="#15CFA0" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="60" y="72" text-anchor="middle" fill="#15CFA0" font-size="22" font-family="monospace" font-weight="900" opacity="0.85">F</text>
+  <!-- Hand base crease -->
+  <path d="M 43 105 Q 60 108 77 105" stroke="#15CFA0" stroke-width="0.8" opacity="0.3"/>
+  <text x="60" y="156" text-anchor="middle" fill="#15CFA0" font-size="10.5" font-family="monospace" font-weight="bold" opacity="0.9">LETTER F</text>
+</svg>

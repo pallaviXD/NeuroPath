@@ -646,3 +646,32 @@ ${source}
 export async function generateSignMode(foundation) {
   return generateFullSignStudy(foundation);
 }
+
+/** Generates simplified, low-vocabulary explanation of lesson foundation */
+export async function generateSimplifiedText(foundation) {
+  const result = await generateJson(
+    `You are NeuroPath's simplified tutoring agent. Rewrite this content to be highly readable, reducing vocabulary difficulty and syntax complexity. Explain any advanced jargon in parenthetical side-notes.
+
+CONTENT:
+"""
+${foundation.originalText}
+"""`,
+    `{ "content": "string" }`
+  );
+  return result || { content: foundation.description || foundation.originalText };
+}
+
+/** Generates bulleted, low-cognitive-load explanation of lesson foundation */
+export async function generateAccessibilityText(foundation) {
+  const result = await generateJson(
+    `You are NeuroPath's neurodivergent-focused tutor. Rewrite this content with ultra-clear layout, formatting it as key bullet lists, short sentences, and low-cognitive-load sections.
+
+CONTENT:
+"""
+${foundation.originalText}
+"""`,
+    `{ "content": "string" }`
+  );
+  return result || { content: foundation.description || foundation.originalText };
+}
+

@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ArrowRight, LogOut, User, ChevronDown } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useAuthStore } from "../store/useAuthStore";
+import AccessibilityToggle from "./accessibility/AccessibilityToggle";
+
 
 export default function Navigation() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -79,6 +81,7 @@ export default function Navigation() {
 
         {/* Right CTAs */}
         <div className="hidden sm:flex items-center gap-3">
+          <AccessibilityToggle />
           {user ? (
             <div className="relative">
               <motion.button onClick={() => setUserMenuOpen(!userMenuOpen)}

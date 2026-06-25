@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, ArrowRight, BookOpen, Layers, CheckCircle2, ChevronRight, Award, Activity, Loader2, PlayCircle, ExternalLink } from "lucide-react";
@@ -15,18 +15,29 @@ import {
   isUsingProxy,
 } from "../lib/neuropath-agent";
 import { dbService } from "../lib/firebase";
-import ForceDiagram from "../components/ForceDiagram";
-import MoleculeBuilder from "../components/MoleculeBuilder";
+
+const ForceDiagram = lazy(() => import("../components/ForceDiagram"));
+const MoleculeBuilder = lazy(() => import("../components/MoleculeBuilder"));
+
 import WikiImageFetcher from "../components/WikiImageFetcher";
 import ReadAndTranslate from "../components/ReadAndTranslate";
 import UnmuteAvatar from "../components/UnmuteAvatar";
 import SignStudyPlayer from "../components/SignStudyPlayer";
 import LessonChoice from "../components/LessonChoice";
 
+// Accessibility enhancements
+import { useAccessibilityStore, ACCESSIBILITY_MODES } from "../store/useAccessibilityStore";
+import LessonPlayerHeader from "../components/lesson/LessonPlayerHeader";
+import AccessibilityLessonView from "../components/lesson/AccessibilityLessonView";
+import CaptionsRenderer from "../components/accessibility/CaptionsRenderer";
+
 export default function Lesson() {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const lesson = getLesson(lessonId);
+
+  // Global Accessibility Store
+  const { mode, fontSize, reducedMotion } = useAccessibilityStore();
 
   const {
     studentProfile,
@@ -448,6 +459,34 @@ export default function Lesson() {
     }
   };
 
+  const progressPercent = lessonComplete 
+    ? 100 
+    : showAssessment 
+      ? 50 + Math.round((currentQuestionIndex / lesson.assessment.length) * 50) 
+      : microResolved 
+        ? 50 
+        : 25;
+
+  const getTextSizeClass = () => {
+    if (fontSize === "large") return "text-[18px] md:text-[20px] leading-relaxed";
+    if (fontSize === "larger") return "text-[21px] md:text-[24px] leading-loose";
+    return "text-[14.5px] leading-relaxed";
+  };
+
+  const getHighContrastClass = (type) => {
+    if (mode !== ACCESSIBILITY_MODES.HIGH_CONTRAST) return "";
+    switch (type) {
+      case "panel":
+        return "bg-black border-2 border-white text-white shadow-none";
+      case "text":
+        return "text-white opacity-100";
+      case "button":
+        return "bg-black border-2 border-white text-white hover:bg-white hover:text-black transition-none shadow-none";
+      default:
+        return "";
+    }
+  };
+
   if (!lesson) {
     return (
       <div className="pt-32 text-center">
@@ -467,191 +506,218 @@ export default function Lesson() {
         </Link>
       </div>
 
+      {/* Lesson Header Telemetry Overlay */}
+      <LessonPlayerHeader
+        lesson={lesson}
+        progress={progressPercent}
+        activeModality={activeModality}
+        activeIntervention={activeIntervention}
+        interventions={[]}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 w-full items-start">
         
         {/* Left Side: Lesson Viewer */}
-        <div ref={containerRef} className="lg:col-span-8 glass-panel rounded-[28px] border border-white/10 p-6 md:p-8 text-left min-h-[460px] flex flex-col justify-between max-h-[75vh] overflow-y-auto relative">
+        <div ref={containerRef} className={`lg:col-span-8 glass-panel rounded-[28px] border border-white/10 p-6 md:p-8 text-left min-h-[460px] flex flex-col justify-between max-h-[75vh] overflow-y-auto relative ${getHighContrastClass("panel")}`}>
           
           {isGenerating ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm z-10 rounded-[28px]">
               <Loader2 className="animate-spin text-accent-blue mb-4" size={32} />
               <p className="text-text-primary font-medium">{generationStatus}</p>
             </div>
-          ) : (!activeModality || (activeModality !== "visual" && !lesson.modalities?.[activeModality])) ? (
+          ) : (!activeModality || (activeModality !== "visual" && !lesson.modalities?.[activeModality])) && mode === ACCESSIBILITY_MODES.STANDARD ? (
             <LessonChoice onChoice={handleChoice} />
           ) : !showAssessment ? (
             // ============ LESSON CONTENT VIEW ============
             <div>
               <div className="flex items-center justify-between mb-4">
-                <span className="font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase">
+                <span className={`font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase ${getHighContrastClass("text")}`}>
                   {lesson.subject}
                 </span>
-                <button 
-                  onClick={() => setActiveModality(null)}
-                  className="font-mono text-[10px] text-text-faint hover:text-white border border-white/10 hover:border-white/30 px-2 py-1 rounded uppercase transition-colors cursor-pointer"
-                  title="Click to switch learning modality"
-                >
-                  Rendering: {activeModality} mode ▾
-                </button>
+                {mode === ACCESSIBILITY_MODES.STANDARD && (
+                  <button 
+                    onClick={() => setActiveModality(null)}
+                    className={`font-mono text-[10px] text-text-faint hover:text-white border border-white/10 hover:border-white/30 px-2 py-1 rounded uppercase transition-colors cursor-pointer ${getHighContrastClass("button")}`}
+                    title="Click to switch learning modality"
+                  >
+                    Rendering: {activeModality} mode ▾
+                  </button>
+                )}
               </div>
               
-              <h2 className="font-display font-bold text-2xl md:text-3xl text-text-primary mb-5">
+              <h2 className={`font-display font-bold text-2xl md:text-3xl text-text-primary mb-5 ${getHighContrastClass("text")}`}>
                 {lesson.title}
               </h2>
 
-              {/* Dynamic Modality Renderer */}
+              {/* Dynamic Modality Renderer or Accessibility view */}
               <div className="space-y-6">
                 
-                {/* 1. VISUAL */}
-                {activeModality === "visual" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    {/* Visual Mode Sub-tabs */}
-                    <div className="flex gap-4 border-b border-white/10 mb-6">
-                      <button
-                        onClick={() => setVisualSubMode("media")}
-                        className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
-                          visualSubMode === "media"
-                            ? "border-accent-pink text-text-primary font-bold"
-                            : "border-transparent text-text-faint hover:text-text-dim"
-                        }`}
-                      >
-                        Media & Diagrams
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setVisualSubMode("sign");
-                          if (!lesson.modalities?.sign) {
-                            setIsGenerating(true);
-                            setGenerationStatus("Translating full syllabus to SgSL signs...");
-                            try {
-                              if (!lesson.modalities) lesson.modalities = {};
-                              lesson.modalities.sign = await generateFullSignStudy(lesson);
-                              saveGeneratedLesson(lesson);
-                            } catch (err) {
-                              console.error(err);
-                            } finally {
-                              setIsGenerating(false);
-                              setGenerationStatus("");
-                            }
-                          }
-                        }}
-                        className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
-                          visualSubMode === "sign"
-                            ? "border-accent-pink text-text-primary font-bold"
-                            : "border-transparent text-text-faint hover:text-text-dim"
-                        }`}
-                      >
-                        3D Sign Study
-                      </button>
-                    </div>
+                {mode !== ACCESSIBILITY_MODES.STANDARD ? (
+                  <AccessibilityLessonView 
+                    lesson={lesson} 
+                    onAdaptation={(msg) => {
+                      if (triggerStruggleIntervention) {
+                        triggerStruggleIntervention("accessibility-adaptation", msg);
+                      }
+                    }}
+                  />
+                ) : (
+                  <>
+                    {/* 1. VISUAL */}
+                    {activeModality === "visual" && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                        {/* Visual Mode Sub-tabs */}
+                        <div className="flex gap-4 border-b border-white/10 mb-6">
+                          <button
+                            onClick={() => setVisualSubMode("media")}
+                            className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
+                              visualSubMode === "media"
+                                ? "border-accent-pink text-text-primary font-bold"
+                                : "border-transparent text-text-faint hover:text-text-dim"
+                            }`}
+                          >
+                            Media & Diagrams
+                          </button>
+                          <button
+                            onClick={async () => {
+                              setVisualSubMode("sign");
+                              if (!lesson.modalities?.sign) {
+                                setIsGenerating(true);
+                                setGenerationStatus("Translating full syllabus to SgSL signs...");
+                                try {
+                                  if (!lesson.modalities) lesson.modalities = {};
+                                  lesson.modalities.sign = await generateFullSignStudy(lesson);
+                                  saveGeneratedLesson(lesson);
+                                } catch (err) {
+                                  console.error(err);
+                                } finally {
+                                  setIsGenerating(false);
+                                  setGenerationStatus("");
+                                }
+                              }
+                            }}
+                            className={`pb-2.5 font-mono text-xs uppercase tracking-wider relative transition-all border-b-2 cursor-pointer ${
+                              visualSubMode === "sign"
+                                ? "border-accent-pink text-text-primary font-bold"
+                                : "border-transparent text-text-faint hover:text-text-dim"
+                            }`}
+                          >
+                            3D Sign Study
+                          </button>
+                        </div>
 
-                    {visualSubMode === "media" ? (
-                      <div className="space-y-5">
-                        <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed">
-                          {lesson.modalities.visual.content}
-                        </p>
-                        {lessonId === "newtons-first-law" ? (
-                          <ForceDiagram lessonId={lessonId} />
-                        ) : lessonId === "cellular-respiration" ? (
-                          <MoleculeBuilder lessonId={lessonId} />
+                        {visualSubMode === "media" ? (
+                          <div className="space-y-5">
+                            <p ref={paragraphRef} className={`text-text-dim ${getTextSizeClass()} ${getHighContrastClass("text")}`}>
+                              {lesson.modalities.visual.content}
+                            </p>
+                            {lessonId === "newtons-first-law" ? (
+                              <ForceDiagram lessonId={lessonId} />
+                            ) : lessonId === "cellular-respiration" ? (
+                              <MoleculeBuilder lessonId={lessonId} />
+                            ) : (
+                              <WikiImageFetcher 
+                                topic={lesson.modalities.visual.wikiTopic || lesson.title} 
+                                searchQuery={lesson.modalities.visual.searchQuery}
+                              />
+                            )}
+
+                            {/* Video Resources */}
+                            {lesson.modalities.visual.videos?.length > 0 && (
+                              <div className="mt-6 space-y-3">
+                                <h4 className={`font-display font-semibold text-sm text-text-primary mb-3 flex items-center gap-2 ${getHighContrastClass("text")}`}>
+                                  <PlayCircle size={16} className="text-accent-blue" />
+                                  Recommended Video Resources
+                                </h4>
+                                
+                                {lesson.modalities.visual.videos.map((vid, i) => {
+                                  const ytLink = vid.url || `https://www.youtube.com/results?search_query=${encodeURIComponent(vid.searchQuery || vid.title)}`;
+                                  return (
+                                    <a key={i} href={ytLink} target="_blank" rel="noreferrer" className={`block p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-accent-blue/40 transition-all group ${getHighContrastClass("panel")}`}>
+                                      <div className="flex items-start justify-between">
+                                        <div>
+                                          <div className={`text-[13px] font-semibold text-text-primary group-hover:text-accent-blue transition-colors ${getHighContrastClass("text")}`}>{vid.title}</div>
+                                          <div className="text-[11px] text-text-faint mt-1">{vid.channel} • {vid.duration}</div>
+                                        </div>
+                                        <ExternalLink size={14} className="text-text-faint group-hover:text-accent-blue" />
+                                      </div>
+                                    </a>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         ) : (
-                          <WikiImageFetcher 
-                            topic={lesson.modalities.visual.wikiTopic || lesson.title} 
-                            searchQuery={lesson.modalities.visual.searchQuery}
-                          />
-                        )}
-
-                        {/* Video Resources */}
-                        {lesson.modalities.visual.videos?.length > 0 && (
-                          <div className="mt-6 space-y-3">
-                            <h4 className="font-display font-semibold text-sm text-text-primary mb-3 flex items-center gap-2">
-                              <PlayCircle size={16} className="text-accent-blue" />
-                              Recommended Video Resources
-                            </h4>
-                            
-                            {lesson.modalities.visual.videos.map((vid, i) => {
-                              const ytLink = vid.url || `https://www.youtube.com/results?search_query=${encodeURIComponent(vid.searchQuery || vid.title)}`;
-                              return (
-                                <a key={i} href={ytLink} target="_blank" rel="noreferrer" className="block p-4 rounded-xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] hover:border-accent-blue/40 transition-all group">
-                                  <div className="flex items-start justify-between">
-                                    <div>
-                                      <div className="text-[13px] font-semibold text-text-primary group-hover:text-accent-blue transition-colors">{vid.title}</div>
-                                      <div className="text-[11px] text-text-faint mt-1">{vid.channel} • {vid.duration}</div>
-                                    </div>
-                                    <ExternalLink size={14} className="text-text-faint group-hover:text-accent-blue" />
-                                  </div>
-                                </a>
-                              );
-                            })}
+                          <div className="space-y-5">
+                            {lesson.modalities.sign?.summaryGloss && (
+                              <p className="font-mono text-[11px] text-accent-mint/80 uppercase tracking-wider text-center">
+                                {lesson.modalities.sign.summaryGloss}
+                              </p>
+                            )}
+                            {lesson.modalities.sign ? (
+                              <SignStudyPlayer
+                                signData={lesson.modalities.sign}
+                                signSystem={lesson.modalities.sign.signSystem || "SgSL"}
+                              />
+                            ) : (
+                              <div className="text-center py-8 text-text-faint text-xs font-mono">
+                                Sign translation not loaded. Click "3D Sign Study" to generate.
+                              </div>
+                            )}
+                            <p className="text-[11px] text-text-faint font-mono text-center">
+                              Visual-only mode — study the full syllabus through 3D signs without reading the text.
+                            </p>
                           </div>
                         )}
-                      </div>
-                    ) : (
-                      <div className="space-y-5">
-                        {lesson.modalities.sign?.summaryGloss && (
-                          <p className="font-mono text-[11px] text-accent-mint/80 uppercase tracking-wider text-center">
-                            {lesson.modalities.sign.summaryGloss}
-                          </p>
-                        )}
-                        {lesson.modalities.sign ? (
-                          <SignStudyPlayer
-                            signData={lesson.modalities.sign}
-                            signSystem={lesson.modalities.sign.signSystem || "SgSL"}
-                          />
-                        ) : (
-                          <div className="text-center py-8 text-text-faint text-xs font-mono">
-                            Sign translation not loaded. Click "3D Sign Study" to generate.
-                          </div>
-                        )}
-                        <p className="text-[11px] text-text-faint font-mono text-center">
-                          Visual-only mode — study the full syllabus through 3D signs without reading the text.
-                        </p>
-                      </div>
+                      </motion.div>
                     )}
-                  </motion.div>
-                )}
 
-                {/* 2. NARRATIVE */}
-                {activeModality === "narrative" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    <h4 className="font-display font-semibold text-text-primary text-md">
-                      {lesson.modalities.narrative.storyTitle}
-                    </h4>
-                    <ReadAndTranslate 
-                      originalText={lesson.modalities.narrative.content} 
-                      className="text-text-dim text-[14.5px] leading-relaxed whitespace-pre-line bg-white/[0.01] border border-white/5 p-4 rounded-2xl italic" 
-                    />
-                  </motion.div>
-                )}
+                    {/* 2. NARRATIVE */}
+                    {activeModality === "narrative" && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                        <h4 className={`font-display font-semibold text-text-primary text-md ${getHighContrastClass("text")}`}>
+                          {lesson.modalities.narrative.storyTitle}
+                        </h4>
+                        <ReadAndTranslate 
+                          originalText={lesson.modalities.narrative.content} 
+                          className={`text-text-dim ${getTextSizeClass()} whitespace-pre-line bg-white/[0.01] border border-white/5 p-4 rounded-2xl italic ${getHighContrastClass("panel")} ${getHighContrastClass("text")}`} 
+                        />
+                      </motion.div>
+                    )}
 
-                {/* 3. KINESTHETIC */}
-                {activeModality === "kinesthetic" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    <p ref={paragraphRef} className="text-text-dim text-[14.5px] leading-relaxed">
-                      {lesson.modalities.kinesthetic.instructions}
-                    </p>
-                    <MoleculeBuilder lessonId={lessonId} />
-                  </motion.div>
-                )}
+                    {/* 3. KINESTHETIC */}
+                    {activeModality === "kinesthetic" && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                        <p ref={paragraphRef} className={`text-text-dim ${getTextSizeClass()} ${getHighContrastClass("text")}`}>
+                          {lesson.modalities.kinesthetic.instructions}
+                        </p>
+                        <MoleculeBuilder lessonId={lessonId} />
+                      </motion.div>
+                    )}
 
-                {/* SHORTER */}
-                {activeModality === "shorter" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
-                    <div className="bg-accent-mint/10 border border-accent-mint/20 p-5 rounded-2xl">
-                      <ReadAndTranslate 
-                        originalText={lesson.modalities.shorter.content} 
-                        className="text-text-dim text-[15px] leading-relaxed whitespace-pre-line" 
-                      />
-                    </div>
-                  </motion.div>
+                    {/* SHORTER */}
+                    {activeModality === "shorter" && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+                        <div className="bg-accent-mint/10 border border-accent-mint/20 p-5 rounded-2xl">
+                          <ReadAndTranslate 
+                            originalText={lesson.modalities.shorter.content} 
+                            className={`text-text-dim ${getTextSizeClass()} whitespace-pre-line ${getHighContrastClass("text")}`} 
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </>
                 )}
 
               </div>
+
+              {/* Dynamic synchronized captions overlay */}
+              <CaptionsRenderer text={lesson.description || lesson.originalText} />
 
               {/* Inline concept checkpoint */}
               {lesson.microCheck && (
                 <div className="mt-8 pt-6 border-t border-dashed border-white/10 text-left">
-                  <h4 className="font-display font-semibold text-sm text-text-primary mb-1">
+                  <h4 className={`font-display font-semibold text-sm text-text-primary mb-1 ${getHighContrastClass("text")}`}>
                     {postInterventionCheck ? "Post-Adaptation Check" : "Concept Checkpoint"}
                   </h4>
                   {postInterventionCheck && !interventionOutcome && (
@@ -659,7 +725,7 @@ export default function Lesson() {
                       Review the adapted {activeModality} explanation above, then verify your understanding.
                     </p>
                   )}
-                  <p className="text-xs text-text-dim mb-4">{lesson.microCheck.question}</p>
+                  <p className={`text-xs text-text-dim mb-4 ${getHighContrastClass("text")}`}>{lesson.microCheck.question}</p>
                   <div className="space-y-2">
                     {lesson.microCheck.options && lesson.microCheck.options.map((opt, index) => (
                       <button
@@ -671,7 +737,7 @@ export default function Lesson() {
                               ? "bg-accent-mint/15 border-accent-mint text-accent-mint"
                               : "bg-accent-pink/15 border-accent-pink text-accent-pink"
                             : "bg-white/[0.02] border-white/5 text-text-dim hover:bg-white/5"
-                        }`}
+                        } ${getHighContrastClass("button")}`}
                       >
                         {opt}
                       </button>
@@ -682,12 +748,12 @@ export default function Lesson() {
                     <motion.div
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 p-4 bg-accent-violet/10 border border-accent-violet/30 rounded-xl text-xs"
+                      className={`mt-4 p-4 bg-accent-violet/10 border border-accent-violet/30 rounded-xl text-xs ${getHighContrastClass("panel")}`}
                     >
                       <div className="font-mono text-[10px] text-accent-violetLight font-bold uppercase tracking-wider mb-2">
                         Adaptation verified
                       </div>
-                      <p className="text-text-dim leading-relaxed">
+                      <p className={`text-text-dim leading-relaxed ${getHighContrastClass("text")}`}>
                         Cleared in <strong className="text-accent-mint">{interventionOutcome.attemptsAfter} attempt{interventionOutcome.attemptsAfter !== 1 ? "s" : ""}</strong> after{" "}
                         <strong className="text-text-primary">{activeModality}</strong> intervention
                         {interventionOutcome.attemptsBefore > 0 && (
@@ -713,16 +779,16 @@ export default function Lesson() {
           ) : (
             // ============ FINAL ASSESSMENT VIEW ============
             <div>
-              <span className="font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase mb-4 inline-block">
+              <span className={`font-mono text-xs text-accent-pinkLight bg-accent-pink/10 border border-accent-pink/20 px-3 py-1 rounded-full uppercase mb-4 inline-block ${getHighContrastClass("text")}`}>
                 Final Check
               </span>
               
               {!lessonComplete ? (
                 <div>
-                  <h3 className="font-display font-semibold text-[17px] text-text-primary mb-4 text-left">
+                  <h3 className={`font-display font-semibold text-[17px] text-text-primary mb-4 text-left ${getHighContrastClass("text")}`}>
                     Question {currentQuestionIndex + 1} of {lesson.assessment.length}
                   </h3>
-                  <p className="text-[14.5px] text-text-dim mb-5 text-left">
+                  <p className={`text-[14.5px] text-text-dim mb-5 text-left ${getHighContrastClass("text")}`}>
                     {lesson.assessment[currentQuestionIndex].question}
                   </p>
                   
@@ -731,7 +797,7 @@ export default function Lesson() {
                       <button
                         key={index}
                         onClick={() => handleAnswerSubmit(index)}
-                        className="w-full p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/5 hover:border-white/20 text-left text-sm text-text-dim hover:text-text-primary transition-all cursor-pointer"
+                        className={`w-full p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/5 hover:border-white/20 text-left text-sm text-text-dim hover:text-text-primary transition-all cursor-pointer ${getHighContrastClass("button")}`}
                       >
                         {opt}
                       </button>
@@ -741,17 +807,17 @@ export default function Lesson() {
               ) : (
                 <div className="text-center py-10 flex flex-col items-center">
                   <Award size={48} className="text-accent-mint mb-4" />
-                  <h3 className="font-display font-bold text-2xl text-text-primary mb-2">Lesson Complete!</h3>
-                  <p className="text-text-dim text-sm max-w-sm mb-6">
+                  <h3 className={`font-display font-bold text-2xl text-text-primary mb-2 ${getHighContrastClass("text")}`}>Lesson Complete!</h3>
+                  <p className={`text-text-dim text-sm max-w-sm mb-6 ${getHighContrastClass("text")}`}>
                     You scored <strong className="text-accent-mint">{score}%</strong>. Your adaptive telemetry log has been updated in the teacher panel.
                   </p>
                   <div className="flex gap-4">
-                    <button onClick={() => navigate("/")} className="px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-text-dim hover:text-text-primary transition-all text-xs font-bold uppercase tracking-wider">
+                    <button onClick={() => navigate("/")} className={`px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:border-white/20 text-text-dim hover:text-text-primary transition-all text-xs font-bold uppercase tracking-wider ${getHighContrastClass("button")}`}>
                       Home
                     </button>
                     <button 
                       onClick={() => navigate("/dashboard")} 
-                      className="px-6 py-3 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] text-white transition-all text-xs font-bold uppercase tracking-wider shadow-glowPink"
+                      className={`px-6 py-3 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] text-white transition-all text-xs font-bold uppercase tracking-wider shadow-glowPink ${getHighContrastClass("button")}`}
                     >
                       View in Dashboard
                     </button>
@@ -770,7 +836,7 @@ export default function Lesson() {
               <button
                 disabled={!microResolved}
                 onClick={handleStartAssessment}
-                className="px-6 py-3 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] text-white font-semibold text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-glowPink transition-all flex items-center gap-1.5"
+                className={`px-6 py-3 rounded-full bg-gradient-to-r from-accent-pink to-[#C2127F] text-white font-semibold text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed hover:shadow-glowPink transition-all flex items-center gap-1.5 ${getHighContrastClass("button")}`}
               >
                 Take Assessment
                 <ChevronRight size={14} />
@@ -784,9 +850,9 @@ export default function Lesson() {
         <div className="lg:col-span-4 flex flex-col gap-6">
           
           {/* Active Adaptive pipeline */}
-          <div className="glass-panel rounded-2xl p-6 text-left border border-white/10">
+          <div className={`glass-panel rounded-2xl p-6 text-left border border-white/10 ${getHighContrastClass("panel")}`}>
             <h3 className="font-display font-bold text-[15px] mb-3 text-text-primary flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2">
+              <span className={`flex items-center gap-2 ${getHighContrastClass("text")}`}>
                 <Activity className="text-accent-pink" size={16} />
                 Struggle Resolution Pipeline
               </span>
@@ -826,7 +892,7 @@ export default function Lesson() {
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="glass-panel border-accent-amber/35 bg-accent-amber/5 rounded-2xl p-6 text-left border relative overflow-hidden"
+                className={`glass-panel border-accent-amber/35 bg-accent-amber/5 rounded-2xl p-6 text-left border relative overflow-hidden ${getHighContrastClass("panel")}`}
               >
                 <div className="absolute -top-12 -right-12 w-24 h-24 rounded-full bg-accent-amber/10 blur-xl" />
                 <h4 className="font-mono text-[10.5px] text-accent-amber font-bold uppercase tracking-wider mb-2 flex items-center gap-1">
@@ -853,7 +919,7 @@ export default function Lesson() {
                     {activeIntervention.modalityRationale}
                   </p>
                 )}
-                <p className="text-[13px] text-text-dim leading-relaxed font-body">
+                <p className={`text-[13px] text-text-dim leading-relaxed font-body ${getHighContrastClass("text")}`}>
                   {activeIntervention.message}
                 </p>
                 {activeIntervention.adaptedSnippet && (
